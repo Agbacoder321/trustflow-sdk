@@ -271,7 +271,7 @@ export function createApiHttpClient(options: ApiHttpClientOptions): AxiosInstanc
     (error) => {
       logger.error('HTTP request error', { error: error.message });
       return Promise.reject(error);
-    }
+    },
   );
 
   instance.interceptors?.response?.use(
@@ -292,7 +292,7 @@ export function createApiHttpClient(options: ApiHttpClientOptions): AxiosInstanc
         message: error.message,
       });
       return Promise.reject(error);
-    }
+    },
   );
 
   return instance;

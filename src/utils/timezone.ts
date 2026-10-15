@@ -202,10 +202,7 @@ export interface FutureExpirationOptions {
  * @returns Non-negative UTC epoch seconds
  * @throws {TrustFlowError} `INVALID_EXPIRATION` if input is invalid or cannot be parsed
  */
-export function normalizeToUtcSeconds(
-  input: Date | number | string,
-  field = 'expiration',
-): number {
+export function normalizeToUtcSeconds(input: Date | number | string, field = 'expiration'): number {
   let ms: number;
   if (input instanceof Date) {
     if (Number.isNaN(input.getTime())) {
@@ -214,10 +211,7 @@ export function normalizeToUtcSeconds(
     ms = input.getTime();
   } else if (typeof input === 'number') {
     if (!Number.isFinite(input) || input < 0) {
-      throw TrustFlowError.invalidExpiration(
-        'Expected a non-negative finite number',
-        field,
-      );
+      throw TrustFlowError.invalidExpiration('Expected a non-negative finite number', field);
     }
     // If input is greater than 1e11, treat as milliseconds, else seconds
     ms = input > 1e11 ? input : input * 1000;
@@ -250,7 +244,7 @@ export function validateFutureExpiration(
 ): number {
   const seconds = normalizeToUtcSeconds(input, field);
   const opts: FutureExpirationOptions =
-    options instanceof Date ? { referenceDate: options } : options ?? {};
+    options instanceof Date ? { referenceDate: options } : (options ?? {});
 
   const refMs = opts.referenceDate instanceof Date ? opts.referenceDate.getTime() : Date.now();
   const nowSeconds = Math.floor(refMs / 1000);
@@ -270,17 +264,17 @@ export function validateFutureExpiration(
  */
 export function normalizeMilestoneExpiration<
   T extends { deadline?: Date | number | string; expiration?: Date | number | string },
->(
-  input: Date | number | string | T[],
-  referenceDate?: Date,
-): any {
+>(input: Date | number | string | T[], referenceDate?: Date): any {
   if (Array.isArray(input)) {
     let lastDeadline = -1;
     return input.map((milestone, idx) => {
       const field = `milestones[${idx}].deadline`;
       const val = milestone.deadline ?? milestone.expiration;
       if (val === undefined) {
-        throw TrustFlowError.invalidExpiration(`Milestone at index ${idx} is missing deadline`, field);
+        throw TrustFlowError.invalidExpiration(
+          `Milestone at index ${idx} is missing deadline`,
+          field,
+        );
       }
       const seconds = validateFutureExpiration(val, field, { referenceDate });
       if (seconds <= lastDeadline) {

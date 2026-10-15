@@ -20,13 +20,22 @@ function shouldLog(level: LogLevel, minLevel: LogLevel): boolean {
 /** Redact sensitive fields from log context */
 function redactContext(context: unknown): unknown {
   if (!context || typeof context !== 'object') return context;
-  
-  const sensitiveKeys = ['authorization', 'apikey', 'api_key', 'apiKey', 'token', 'secret', 'password', 'key'];
+
+  const sensitiveKeys = [
+    'authorization',
+    'apikey',
+    'api_key',
+    'apiKey',
+    'token',
+    'secret',
+    'password',
+    'key',
+  ];
   const result: Record<string, unknown> = {};
-  
+
   for (const [key, value] of Object.entries(context as Record<string, unknown>)) {
     const lowerKey = key.toLowerCase();
-    if (sensitiveKeys.some(k => lowerKey.includes(k))) {
+    if (sensitiveKeys.some((k) => lowerKey.includes(k))) {
       result[key] = '[REDACTED]';
     } else if (value && typeof value === 'object') {
       result[key] = redactContext(value);
@@ -73,16 +82,16 @@ export interface SDKLoggerOptions {
 
 /**
  * SDK Logger with configurable levels, JSON output, and custom logger support.
- * 
+ *
  * @example
  * ```ts
  * // Basic usage with level control
  * const logger = new SDKLogger({ minLevel: 'debug', prefix: 'MyApp' });
  * logger.debug('Debug info', { foo: 'bar' });
- * 
+ *
  * // JSON output for log aggregation
  * const jsonLogger = new SDKLogger({ minLevel: 'info', json: true });
- * 
+ *
  * // Inject custom logger (pino, winston, etc.)
  * const customLogger = new SDKLogger({ logger: pinoLogger });
  * ```
@@ -162,6 +171,9 @@ export class SDKLogger implements Logger {
 export const logger = new SDKLogger();
 
 /** Create a child logger with a different prefix */
-export function createLogger(prefix: string, options: Omit<SDKLoggerOptions, 'prefix'> = {}): SDKLogger {
+export function createLogger(
+  prefix: string,
+  options: Omit<SDKLoggerOptions, 'prefix'> = {},
+): SDKLogger {
   return new SDKLogger({ ...options, prefix });
 }

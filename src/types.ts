@@ -1,9 +1,9 @@
-import type { IPFSConfig } from "./storage";
-import type { ApiRetryConfig } from "./utils/http";
-import type { AddAccountInput } from "./accounts/types";
-import type { LogLevel, Logger } from "./utils/logger";
-import type { Horizon, rpc } from "@stellar/stellar-sdk";
-import type { StellarNetwork } from "./stellar/network";
+import type { IPFSConfig } from './storage';
+import type { ApiRetryConfig } from './utils/http';
+import type { AddAccountInput } from './accounts/types';
+import type { LogLevel, Logger } from './utils/logger';
+import type { Horizon, rpc } from '@stellar/stellar-sdk';
+import type { StellarNetwork } from './stellar/network';
 
 export type Network = StellarNetwork;
 
@@ -67,11 +67,11 @@ export interface ClientConfig {
 
 /** Status of an escrow contract. */
 export enum EscrowStatus {
-  Pending = "PENDING",
-  Active = "ACTIVE",
-  Released = "RELEASED",
-  Disputed = "DISPUTED",
-  Cancelled = "CANCELLED",
+  Pending = 'PENDING',
+  Active = 'ACTIVE',
+  Released = 'RELEASED',
+  Disputed = 'DISPUTED',
+  Cancelled = 'CANCELLED',
 }
 
 /** Escrow entity representation. */

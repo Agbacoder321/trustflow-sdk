@@ -87,14 +87,22 @@ export class TrustFlowClient {
   private readonly logger: SDKLogger;
 
   private _network!: Network;
-  get network(): Network { return this._network; }
+  get network(): Network {
+    return this._network;
+  }
   readonly contractId: string;
   private _rpcUrl!: string;
-  get rpcUrl(): string { return this._rpcUrl; }
+  get rpcUrl(): string {
+    return this._rpcUrl;
+  }
   private _horizonUrl!: string;
-  get horizonUrl(): string { return this._horizonUrl; }
+  get horizonUrl(): string {
+    return this._horizonUrl;
+  }
   private _networkPassphrase!: string;
-  get networkPassphrase(): string { return this._networkPassphrase; }
+  get networkPassphrase(): string {
+    return this._networkPassphrase;
+  }
   readonly apiBaseUrl?: string;
   readonly apiKey?: string;
   readonly version: string = SDK_VERSION;
@@ -119,7 +127,7 @@ export class TrustFlowClient {
    *
    * @param config - Client configuration options
    * @param config.contractId - The Soroban contract ID for TrustFlow escrow
-    * @param config.network - Target network, defaults to TESTNET
+   * @param config.network - Target network, defaults to TESTNET
    * @param config.rpcUrl - Optional custom Soroban RPC URL
    * @param config.apiBaseUrl - Optional TrustFlow API base URL for backend integration
    * @param config.apiKey - Optional API key for authenticated requests
@@ -185,7 +193,9 @@ export class TrustFlowClient {
       ? new SimpleCache(config.balanceCache.ttlMs ?? DEFAULT_BALANCE_CACHE_TTL_MS)
       : undefined;
 
-    this.server = config.horizonServer ?? new Horizon.Server(this.horizonUrl);
+    this.server =
+      config.horizonServer ??
+      new Horizon.Server(this.horizonUrl, { allowHttp: this.horizonUrl.startsWith('http://') });
     this.sorobanServer = config.rpcServer;
     this.logger = logger;
     this.accounts = new AccountManager();
@@ -390,7 +400,10 @@ export class TrustFlowClient {
    * ```
    */
   async connect(): Promise<void> {
-    this.logger.debug('Connecting to Stellar network', { network: this.network, rpcUrl: this.rpcUrl });
+    this.logger.debug('Connecting to Stellar network', {
+      network: this.network,
+      rpcUrl: this.rpcUrl,
+    });
     try {
       // Test connection by fetching ledger info
       await withTransientRetry(
@@ -439,12 +452,18 @@ export class TrustFlowClient {
     this._rpcUrl = config.rpcUrl;
     this._horizonUrl = config.horizonUrl;
     this._networkPassphrase = config.passphrase;
-    this.server = new Horizon.Server(this.horizonUrl);
+    this.server = new Horizon.Server(this.horizonUrl, {
+      allowHttp: this.horizonUrl.startsWith('http://'),
+    });
     this.sorobanServer = undefined;
     this._connected = false;
   }
 
-  async verifyApiCompatibility(): Promise<{ compatible: boolean; serverVersion: string; clientVersion: string }> {
+  async verifyApiCompatibility(): Promise<{
+    compatible: boolean;
+    serverVersion: string;
+    clientVersion: string;
+  }> {
     if (!this.apiBaseUrl) {
       return { compatible: true, serverVersion: 'N/A', clientVersion: this.apiVersion };
     }
@@ -536,7 +555,14 @@ export class TrustFlowClient {
     const account = this.accounts.require(options.account);
     try {
       return await withTransientRetry(
-        () => fetchAccountInfo(account.address, this.network, this.retryConfig, this.horizonUrl, this.timeoutMs),
+        () =>
+          fetchAccountInfo(
+            account.address,
+            this.network,
+            this.retryConfig,
+            this.horizonUrl,
+            this.timeoutMs,
+          ),
         undefined,
         this.retryConfig,
         'horizon.accountInfo',
@@ -639,7 +665,9 @@ export class TrustFlowClient {
    * ```
    */
   getSorobanServer(): rpc.Server {
-    this.sorobanServer ??= new rpc.Server(this.rpcUrl, { allowHttp: Config.isAllowHttp() });
+    this.sorobanServer ??= new rpc.Server(this.rpcUrl, {
+      allowHttp: Config.isAllowHttp() || this.rpcUrl.startsWith('http://'),
+    });
     return this.sorobanServer;
   }
 

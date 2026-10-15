@@ -8,6 +8,7 @@ import { createApiHttpClient, toApiErrorMessage } from '../utils/http';
 import type { ApiRetryConfig } from '../utils/http';
 import type { HttpInterceptors } from '../utils/interceptors';
 import { logger } from '../utils/logger';
+import { isValidEscrowId } from '../utils/validation';
 
 /**
  * Raises a dispute directly against the TrustFlow contract.
@@ -106,14 +107,13 @@ export class DisputeClient {
     legacyOptions: DisputeClientOptions = {},
   ) {
     const config = typeof configOrUrl === 'string' ? undefined : configOrUrl;
-    this.apiUrl = config ? config.apiBaseUrl ?? '' : String(configOrUrl);
+    this.apiUrl = config ? (config.apiBaseUrl ?? '') : String(configOrUrl);
     this.token = config
-      ? config.apiKey ?? ''
+      ? (config.apiKey ?? '')
       : typeof tokenOrOptions === 'string'
         ? tokenOrOptions
         : '';
-    const options =
-      typeof tokenOrOptions === 'string' ? legacyOptions : tokenOrOptions;
+    const options = typeof tokenOrOptions === 'string' ? legacyOptions : tokenOrOptions;
 
     if (!this.apiUrl) {
       throw new Error('apiBaseUrl is required for DisputeClient');
@@ -152,6 +152,12 @@ export class DisputeClient {
    * ```
    */
   async raiseDispute(params: DisputeParams): Promise<SDKResult<{ disputeId: string }>> {
+    if (!params || !isValidEscrowId(params.escrowId)) {
+      return { ok: false, error: 'escrowId is required' };
+    }
+    if (typeof params.reason !== 'string' || params.reason.trim().length < 10) {
+      return { ok: false, error: 'Dispute reason must be at least 10 characters' };
+    }
     try {
       const response = await this.http.post<{ id: string }>('/disputes', params);
       const data = response.data;
@@ -180,8 +186,11 @@ export class DisputeClient {
    * ```
    */
   async getDispute(escrowId: string): Promise<SDKResult<unknown>> {
+    if (!isValidEscrowId(escrowId)) {
+      return { ok: false, error: 'escrowId is required' };
+    }
     try {
-      const response = await this.http.get<unknown>(`/disputes/${escrowId}`);
+      const response = await this.http.get<unknown>(`/disputes/${encodeURIComponent(escrowId)}`);
       return { ok: true, data: response.data };
     } catch (e) {
       logger.error(`Failed to get dispute for escrow ${escrowId}`, e);

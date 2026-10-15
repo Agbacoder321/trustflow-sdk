@@ -247,7 +247,12 @@ export class MultiSigEscrowClient {
 
     try {
       logger.debug('Submitting multi-sig operation', { operationId });
-      const submitted = await submitTransaction(assembledResult.data.xdr, horizonUrl, undefined, this.timeoutMs);
+      const submitted = await submitTransaction(
+        assembledResult.data.xdr,
+        horizonUrl,
+        undefined,
+        this.timeoutMs,
+      );
       this._markTerminal(operation, 'submitted');
       logger.info('Multi-sig operation submitted', { operationId, txHash: submitted.hash });
       return {
@@ -284,10 +289,7 @@ export class MultiSigEscrowClient {
     }
 
     try {
-      const xdrResult = this._mergeSignatures(
-        operation.unsignedXdr,
-        verifiedSignatures,
-      );
+      const xdrResult = this._mergeSignatures(operation.unsignedXdr, verifiedSignatures);
       return { ok: true, data: { xdr: xdrResult } };
     } catch (e) {
       return { ok: false, error: `XDR assembly failed: ${String(e)}` };

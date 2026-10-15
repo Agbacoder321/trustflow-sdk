@@ -34,7 +34,13 @@ export * from './utils/transient';
 export * from './utils/retry';
 export * from './utils/interceptors';
 export * from './tx-pipeline';
-export type { RawContractEvent, ParsedEvent, EscrowCreatedData, EscrowReleasedData, DisputeRaisedData } from './events';
+export type {
+  RawContractEvent,
+  ParsedEvent,
+  EscrowCreatedData,
+  EscrowReleasedData,
+  DisputeRaisedData,
+} from './events';
 export { SorobanSpec } from './contract/spec';
 export { TrustFlowClient } from './client';
 export type { GetBalanceOptions } from './client';

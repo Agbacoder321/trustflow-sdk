@@ -930,7 +930,56 @@ Create pre-formatted errors:
 - `TrustFlowError.feeBumpFailed(detail: string, cause?: unknown)` — 'FEE_BUMP_ERROR' error
 - `TrustFlowError.submissionFailed(detail: string, cause?: unknown)` — 'SUBMISSION_ERROR' error
 - `TrustFlowError.signingFailed(detail: string, cause?: unknown)` — 'SIGNING_ERROR' error
-- `TrustFlowError.retryExhausted(stage: string, attempts: number, cause?: unknown)` — 'RETRY_EXHAUSTED' error
+
+## React Hooks (`@trustflow/sdk/react`)
+
+Client-side hooks for React dApps, exported from `@trustflow/sdk/react`:
+
+### `useWallet`
+```typescript
+const { wallet, connecting, error, connect, disconnect } = useWallet(defaultWalletType?);
+```
+Manages wallet connection state (Freighter, Albedo, etc.).
+
+### `useBalance`
+```typescript
+const { balance, loading, error } = useBalance(client, address);
+```
+Fetches XLM balance for a Stellar address, automatically re-fetching and resetting when address changes.
+
+### `useTransaction`
+```typescript
+const { status, hash, error, execute, reset, isPending } = useTransaction();
+```
+Tracks transaction submission lifecycle (`idle` | `pending` | `success` | `error`).
+
+### `useEscrow`
+```typescript
+const { escrow, loading, error, create, release, cancel, dispute, refresh } = useEscrow(client);
+```
+Wraps escrow lifecycle actions with shared `loading`, `error`, and `escrow` state, guarded against race conditions on overlapping calls:
+- `create(params)` — creates a new escrow
+- `release(escrowId, caller)` — releases funds to beneficiary
+- `cancel(escrowId, caller)` — cancels escrow and returns funds to depositor
+- `dispute(escrowId, caller, reason)` — raises a contract-level dispute
+- `refresh(escrowId)` — re-fetches and updates the on-chain escrow state
+
+### `useProfile`
+```typescript
+const { profile, loading, error, update } = useProfile(profileClient, address);
+```
+Fetches and manages a user's profile from the backend API:
+- Automatically re-fetches when `address` changes, resetting state appropriately.
+- `update(params)` — updates the user's profile via `ProfileClient.updateProfile`.
+
+### `useJuror`
+```typescript
+const { loading, error, vote, createVoteCommitment, revealVote } = useJuror(jurorClient);
+```
+Provides juror operations with managed `loading` and `error` state:
+- `vote(params)` — casts a plaintext or encrypted vote on a dispute
+- `createVoteCommitment(voteForDepositor, salt?)` — generates a 32-byte salt commitment for commit-reveal voting
+- `revealVote(voteForDepositor, salt)` — verifies and creates a reveal payload matching contract preimage requirements
 
 
 ## Testing Kit (`@trustflow/sdk/testing`)

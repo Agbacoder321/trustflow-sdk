@@ -51,38 +51,166 @@ describe('DisputeClient', () => {
     );
   });
 
-  it('returns success for raiseDispute when API responds with ID', async () => {
-    mockHttpPost.mockResolvedValueOnce({ data: { id: 'dsp-1' } });
+  describe('raiseDispute', () => {
+    it('returns success when API responds with ID', async () => {
+      mockHttpPost.mockResolvedValueOnce({ data: { id: 'dsp-1' } });
 
-    const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
-    const result = await client.raiseDispute({ escrowId: 'esc-1', reason: 'test' });
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.raiseDispute({
+        escrowId: 'esc-1',
+        reason: 'Goods not delivered on time',
+      });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data.disputeId).toBe('dsp-1');
-    }
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.disputeId).toBe('dsp-1');
+      }
+      expect(mockHttpPost).toHaveBeenCalledWith('/disputes', {
+        escrowId: 'esc-1',
+        reason: 'Goods not delivered on time',
+      });
+    });
+
+    it('returns error result on network failure', async () => {
+      mockHttpPost.mockRejectedValueOnce(new Error('connection reset'));
+
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.raiseDispute({
+        escrowId: 'esc-1',
+        reason: 'Goods not delivered on time',
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/Network error/);
+      }
+    });
+
+    it('rejects an empty escrowId without making an HTTP call', async () => {
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.raiseDispute({
+        escrowId: '',
+        reason: 'Goods not delivered on time',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/escrowId/);
+      }
+      expect(mockHttpPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed escrowId containing "/" without making an HTTP call', async () => {
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.raiseDispute({
+        escrowId: 'esc/123',
+        reason: 'Goods not delivered on time',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/escrowId/);
+      }
+      expect(mockHttpPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed escrowId containing "?" without making an HTTP call', async () => {
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.raiseDispute({
+        escrowId: 'esc?123',
+        reason: 'Goods not delivered on time',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/escrowId/);
+      }
+      expect(mockHttpPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects a reason shorter than 10 characters without making an HTTP call', async () => {
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.raiseDispute({
+        escrowId: 'esc-1',
+        reason: 'Too short',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/at least 10 characters/);
+      }
+      expect(mockHttpPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects a whitespace-only reason without making an HTTP call', async () => {
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.raiseDispute({
+        escrowId: 'esc-1',
+        reason: '          ',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/at least 10 characters/);
+      }
+      expect(mockHttpPost).not.toHaveBeenCalled();
+    });
   });
 
-  it('returns error result on network failure', async () => {
-    mockHttpPost.mockRejectedValueOnce(new Error('connection reset'));
+  describe('getDispute', () => {
+    it('returns dispute payload for valid escrowId', async () => {
+      mockHttpGet.mockResolvedValueOnce({ data: { id: 'dsp-1', status: 'open' } });
 
-    const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
-    const result = await client.raiseDispute({ escrowId: 'esc-1', reason: 'test' });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/Network error/);
-    }
-  });
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.getDispute('esc-1');
 
-  it('returns dispute payload for getDispute', async () => {
-    mockHttpGet.mockResolvedValueOnce({ data: { id: 'dsp-1', status: 'open' } });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data).toEqual({ id: 'dsp-1', status: 'open' });
+      }
+      expect(mockHttpGet).toHaveBeenCalledWith('/disputes/esc-1');
+    });
 
-    const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
-    const result = await client.getDispute('esc-1');
+    it('URL-encodes escrowId in getDispute endpoint', async () => {
+      mockHttpGet.mockResolvedValueOnce({ data: { id: 'dsp-2', status: 'resolved' } });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data).toEqual({ id: 'dsp-1', status: 'open' });
-    }
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.getDispute('esc 100');
+
+      expect(result.ok).toBe(true);
+      expect(mockHttpGet).toHaveBeenCalledWith('/disputes/esc%20100');
+    });
+
+    it('rejects empty escrowId without making an HTTP call', async () => {
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.getDispute('');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/escrowId/);
+      }
+      expect(mockHttpGet).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed escrowId containing "/" without making an HTTP call', async () => {
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.getDispute('esc/123');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/escrowId/);
+      }
+      expect(mockHttpGet).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed escrowId containing "?" without making an HTTP call', async () => {
+      const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
+      const result = await client.getDispute('esc?123');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/escrowId/);
+      }
+      expect(mockHttpGet).not.toHaveBeenCalled();
+    });
   });
 });

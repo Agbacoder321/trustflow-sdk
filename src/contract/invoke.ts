@@ -70,7 +70,12 @@ export async function invokeContract(
   const server = client.getSorobanServer();
   const contract = new Contract(client.contractId);
 
-  logger.debug('Invoking contract method', { method, caller, contractId: client.contractId, argsCount: args.length });
+  logger.debug('Invoking contract method', {
+    method,
+    caller,
+    contractId: client.contractId,
+    argsCount: args.length,
+  });
 
   try {
     const account = await withTransientRetry(
@@ -115,12 +120,14 @@ export async function invokeContract(
       };
     }
 
-    const prepared = rpc.assembleTransaction(tx, {
-      transactionData: simulation.transactionData ?? '',
-      events: [],
-      minResourceFee: simulation.minResourceFee ?? '0',
-      result: { retval: simulation.returnValue as any },
-    } as any).build();
+    const prepared = rpc
+      .assembleTransaction(tx, {
+        transactionData: simulation.transactionData ?? '',
+        events: [],
+        minResourceFee: simulation.minResourceFee ?? '0',
+        result: { retval: simulation.returnValue as any },
+      } as any)
+      .build();
     const xdr = prepared.toXDR();
     logger.debug('Signing and submitting transaction', { method, xdrLength: xdr.length });
     const txHash = await signAndSubmit(xdr);
