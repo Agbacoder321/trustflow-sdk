@@ -1,6 +1,12 @@
 import { ContractConfig } from '../types/contract';
 import { EscrowParams, EscrowState, SDKResult, GetGigsParams, GigsPage } from '../types/index';
-import { assertStellarAddress, isValidEscrowId, xlmToStroops, STELLAR_ADDRESS_RE, CONTRACT_ID_RE } from '../utils/validation';
+import {
+  assertStellarAddress,
+  isValidEscrowId,
+  xlmToStroops,
+  STELLAR_ADDRESS_RE,
+  CONTRACT_ID_RE,
+} from '../utils/validation';
 import { createApiHttpClient, toApiErrorMessage } from '../utils/http';
 import type { ApiRetryConfig } from '../utils/http';
 import type { HttpInterceptors } from '../utils/interceptors';
@@ -309,25 +315,30 @@ export class TrustFlowEscrowClient {
       query.set('beneficiary', params.beneficiary);
     }
     if (params.tokenAddress) {
-      if (!STELLAR_ADDRESS_RE.test(params.tokenAddress) && !CONTRACT_ID_RE.test(params.tokenAddress)) {
+      if (
+        !STELLAR_ADDRESS_RE.test(params.tokenAddress) &&
+        !CONTRACT_ID_RE.test(params.tokenAddress)
+      ) {
         return { ok: false, error: `Invalid tokenAddress: "${params.tokenAddress}"` };
       }
       query.set('tokenAddress', params.tokenAddress);
     }
     if (params.createdAfter !== undefined) {
-      const dateStr = params.createdAfter instanceof Date
-        ? params.createdAfter.toISOString()
-        : typeof params.createdAfter === 'number'
-          ? new Date(params.createdAfter).toISOString()
-          : String(params.createdAfter);
+      const dateStr =
+        params.createdAfter instanceof Date
+          ? params.createdAfter.toISOString()
+          : typeof params.createdAfter === 'number'
+            ? new Date(params.createdAfter).toISOString()
+            : String(params.createdAfter);
       query.set('createdAfter', dateStr);
     }
     if (params.createdBefore !== undefined) {
-      const dateStr = params.createdBefore instanceof Date
-        ? params.createdBefore.toISOString()
-        : typeof params.createdBefore === 'number'
-          ? new Date(params.createdBefore).toISOString()
-          : String(params.createdBefore);
+      const dateStr =
+        params.createdBefore instanceof Date
+          ? params.createdBefore.toISOString()
+          : typeof params.createdBefore === 'number'
+            ? new Date(params.createdBefore).toISOString()
+            : String(params.createdBefore);
       query.set('createdBefore', dateStr);
     }
     if (params.minAmount !== undefined) {

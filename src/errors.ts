@@ -159,10 +159,7 @@ export class TrustFlowError extends Error {
    */
   static timedOut(timeoutMs: number, context?: string): TrustFlowError {
     const where = context ? ` (${context})` : '';
-    return new TrustFlowError(
-      `Timed out after ${timeoutMs}ms${where}`,
-      'TIMEOUT',
-    );
+    return new TrustFlowError(`Timed out after ${timeoutMs}ms${where}`, 'TIMEOUT');
   }
 
   static retryExhausted(stage: string, attempts: number, cause?: unknown): TrustFlowError {
@@ -193,7 +190,9 @@ export class TrustFlowError extends Error {
   }
 
   static invalidExpiration(detail: string, field?: string, cause?: unknown): TrustFlowError {
-    const message = detail.startsWith('Invalid expiration') ? detail : `Invalid expiration: ${detail}`;
+    const message = detail.startsWith('Invalid expiration')
+      ? detail
+      : `Invalid expiration: ${detail}`;
     return new TrustFlowError(message, 'INVALID_EXPIRATION', cause, field);
   }
 }
