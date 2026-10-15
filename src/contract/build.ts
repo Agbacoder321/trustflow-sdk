@@ -66,9 +66,20 @@ export function buildFundArgs(
   return args;
 }
 
-export function buildDisputeArgs(escrowId: string, reason: string): unknown[] {
+export function buildDisputeArgs(
+  escrowId: string,
+  caller: string,
+  maybeReason?: string,
+): unknown[] {
   assertEscrowId(escrowId);
-  return [nativeToScVal(escrowId, { type: 'string' }), nativeToScVal(reason, { type: 'string' })];
+  if (maybeReason !== undefined) {
+    return [
+      nativeToScVal(escrowId, { type: 'string' }),
+      new Address(caller).toScVal(),
+      nativeToScVal(maybeReason, { type: 'string' }),
+    ];
+  }
+  return [nativeToScVal(escrowId, { type: 'string' }), nativeToScVal(caller, { type: 'string' })];
 }
 
 /**

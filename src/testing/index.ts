@@ -465,12 +465,49 @@ export function createMockSorobanServer(options: MockSorobanServerOptions = {}):
 /**
  * Mock wallet adapter simulating browser wallet extensions (Freighter, Albedo).
  */
+export interface MockWalletAdapterOptions {
+  publicKey?: string;
+  connected?: boolean;
+  rejectNextError?: Error | string | null;
+  shouldReject?: boolean;
+}
+
 export class MockWalletAdapter {
   publicKey: string;
   connected: boolean = true;
+  private nextRejection: Error | null = null;
 
-  constructor(publicKey = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF') {
-    this.publicKey = publicKey;
+  constructor(
+    optionsOrKey: string | MockWalletAdapterOptions = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+  ) {
+    if (typeof optionsOrKey === 'string') {
+      this.publicKey = optionsOrKey;
+    } else {
+      this.publicKey =
+        optionsOrKey.publicKey ?? 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+      this.connected = optionsOrKey.connected ?? true;
+      if (optionsOrKey.rejectNextError) {
+        this.rejectNext(optionsOrKey.rejectNextError);
+      } else if (optionsOrKey.shouldReject) {
+        this.rejectNext('User rejected request');
+      }
+    }
+  }
+
+  /**
+   * Configures the next method call (connect, signTransaction, signAuthEntry) to reject with an error (Issue #478).
+   */
+  rejectNext(error: Error | string = new Error('User declined transaction')): this {
+    this.nextRejection = typeof error === 'string' ? new Error(error) : error;
+    return this;
+  }
+
+  private checkRejection(): void {
+    if (this.nextRejection) {
+      const err = this.nextRejection;
+      this.nextRejection = null;
+      throw err;
+    }
   }
 
   async isConnected(): Promise<boolean> {
@@ -478,10 +515,12 @@ export class MockWalletAdapter {
   }
 
   async getPublicKey(): Promise<string> {
+    this.checkRejection();
     return this.publicKey;
   }
 
   async connect(): Promise<string> {
+    this.checkRejection();
     this.connected = true;
     return this.publicKey;
   }
@@ -491,12 +530,57 @@ export class MockWalletAdapter {
   }
 
   async signTransaction(xdrString: string): Promise<string> {
+    this.checkRejection();
     return xdrString;
   }
 
   async signAuthEntry(entryXdr: string): Promise<string> {
+    this.checkRejection();
     return entryXdr;
   }
+
+  /**
+   * Produces a browser-injectable window.freighter object for Playwright (page.addInitScript)
+   * or Cypress (cy.window().then(...)) (Issue #478).
+   */
+  toFreighterGlobal() {
+    return {
+      isConnected: async () => this.isConnected(),
+      isAllowed: async () => this.isConnected(),
+      getPublicKey: async () => this.getPublicKey(),
+      signTransaction: async (xdr: string) => {
+        const signed = await this.signTransaction(xdr);
+        return { signedXDR: signed };
+      },
+      getNetwork: async () => 'TESTNET',
+      signMessage: async (message: string) => `mock_sig_${message}`,
+    };
+  }
+}
+
+/**
+ * Creates a browser init script string for Playwright's `page.addInitScript()` or Cypress
+ * to inject a mock `window.freighter` provider before page scripts run (Issue #478).
+ */
+export function createPlaywrightWalletScript(options: MockWalletAdapterOptions = {}): string {
+  const pubKey = options.publicKey ?? 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+  const shouldReject = !!options.shouldReject;
+  return `
+    window.freighter = {
+      isConnected: async () => true,
+      isAllowed: async () => true,
+      getPublicKey: async () => {
+        if (${shouldReject}) throw new Error('User rejected request');
+        return '${pubKey}';
+      },
+      signTransaction: async (xdr) => {
+        if (${shouldReject}) throw new Error('User declined transaction');
+        return { signedXDR: xdr };
+      },
+      getNetwork: async () => 'TESTNET',
+      signMessage: async (msg) => 'mock_signature'
+    };
+  `;
 }
 
 /**

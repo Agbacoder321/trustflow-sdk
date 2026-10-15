@@ -1,0 +1,37 @@
+[
+  {
+    "path": "dist/index.mjs",
+    "limit": "80 KB",
+    "name": "Root entry (.)"
+  },
+  {
+    "path": "dist/hooks/index.mjs",
+    "limit": "30 KB",
+    "name": "React entry (./react)"
+  },
+  {
+    "path": "dist/escrow/index.mjs",
+    "limit": "30 KB",
+    "name": "Escrow entry (./escrow)"
+  },
+  {
+    "path": "dist/wallet/index.mjs",
+    "limit": "20 KB",
+    "name": "Wallet entry (./wallet)"
+  },
+  {
+    "path": "dist/utils/index.mjs",
+    "limit": "25 KB",
+    "name": "Utils entry (./utils)"
+  },
+  {
+    "path": "dist/node/index.mjs",
+    "limit": "20 KB",
+    "name": "Node entry (./node)"
+  },
+  {
+    "path": "dist/testing/index.mjs",
+    "limit": "35 KB",
+    "name": "Testing entry (./testing)"
+  }
+]

@@ -92,7 +92,9 @@
     "docs:watch": "typedoc --watch",
     "prepublishOnly": "npm run build",
     "test:bundlers": "node examples/bundlers/verify-bundlers.mjs",
-    "examples:multi-account": "esbuild examples/multi-account.ts --bundle --platform=node --format=cjs --outfile=node_modules/.cache/trustflow-multi-account.cjs --log-level=error && node node_modules/.cache/trustflow-multi-account.cjs"
+    "examples:multi-account": "esbuild examples/multi-account.ts --bundle --platform=node --format=cjs --outfile=node_modules/.cache/trustflow-multi-account.cjs --log-level=error && node node_modules/.cache/trustflow-multi-account.cjs",
+    "size": "size-limit",
+    "treeshake:check": "node scripts/verify-treeshaking.mjs"
   },
   "license": "MIT",
   "dependencies": {
@@ -137,6 +139,8 @@
     "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
     "webpack": "^5.97.0",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "size-limit": "^11.1.6",
+    "@size-limit/preset-small-lib": "^11.1.6"
   }
 }

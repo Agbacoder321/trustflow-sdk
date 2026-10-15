@@ -52,7 +52,7 @@ export async function disputeEscrow(
   }
   // Encoded ScVal args are ready for the shared tx-pipeline once wired to a
   // live signer; this returns the prepared call metadata in the meantime.
-  const args = buildDisputeArgs(params.escrowId, params.reason);
+  const args = buildDisputeArgs(params.escrowId, params.caller, params.reason);
   void args;
   // Soroban contract call: dispute(escrow_id, caller, reason)
   return `tx_dispute_${params.escrowId}_${Date.now()}`;
