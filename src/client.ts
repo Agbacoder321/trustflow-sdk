@@ -1,3 +1,4 @@
+import { destroyAllPoolAgents } from './utils/connection-pool';
 import { negotiateApiVersion } from './utils/version';
 import { Config, Horizon, rpc, xdr } from '@stellar/stellar-sdk';
 import {
@@ -783,5 +784,13 @@ export class TrustFlowClient {
   private balanceCacheKey(address: string, account?: string): string {
     const context = this.resolveAccount(account);
     return context ? `${context.id}:${address}` : address;
+  }
+
+  /**
+   * Disconnects the client, closing all pooled HTTP/HTTPS sockets and clearing caches (Issue #359).
+   */
+  async disconnect(): Promise<void> {
+    this._connected = false;
+    destroyAllPoolAgents();
   }
 }

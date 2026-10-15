@@ -74,6 +74,12 @@ jobs:
           test -f dist/index.d.ts || exit 1
           echo "✓ All build artifacts present"
 
+      - name: Enforce bundle size limits
+        run: npm run size
+
+      - name: Verify tree-shaking
+        run: npm run treeshake:check
+
   hooks-react:
     name: Hook tests (React ${{ matrix.react-version }})
     runs-on: ubuntu-latest
