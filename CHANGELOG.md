@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### CI formatting check with Prettier (#472)
+
+- Issue #472: Added `Check formatting` step (`npm run format:check`) to GitHub Actions CI workflow and formatted all source files with Prettier.
+
+### Escrow hook lifecycle actions and concurrency guard (#473)
+
+- Issue #473: Added `cancel`, `dispute`, and `refresh` actions to `useEscrow` hook with `callId` race-condition guard against overlapping calls.
+
+### Profile and Juror React hooks (#474)
+
+- Issue #474: Added `useProfile` and `useJuror` React hooks to `@trustflow/sdk/react`, documented in `docs/API.md`, with full test suites.
+
+### DisputeClient input validation and URL encoding (#475)
+
+- Issue #475: Validated `escrowId` and `reason` minimum length in `DisputeClient.raiseDispute` and `getDispute`, and safely URL-encoded `escrowId`.
+
 ### Wallet SEP-0007 transaction URIs (#379)
 
 - Issue #379: Added `generateSep7Uri` for mobile wallet deep links and QR payloads, with SEP-0007 parameter encoding and URI size validation.
