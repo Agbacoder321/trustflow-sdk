@@ -1,4 +1,5 @@
 import { DisputeClient } from '../src/escrow/dispute';
+import type { Dispute } from '../src/types/index';
 import type { ContractConfig } from '../src/types/contract';
 
 const mockHttpPost = jest.fn();
@@ -157,15 +158,26 @@ describe('DisputeClient', () => {
   });
 
   describe('getDispute', () => {
-    it('returns dispute payload for valid escrowId', async () => {
-      mockHttpGet.mockResolvedValueOnce({ data: { id: 'dsp-1', status: 'open' } });
+    it('returns typed dispute payload for valid escrowId (#471)', async () => {
+      const mockDispute: Dispute = {
+        id: 'dsp-1',
+        escrowId: 'esc-1',
+        reason: 'Milestone work not submitted',
+        status: 'open',
+        evidence: 'ipfs://QmEvidenceHash123',
+      };
+      mockHttpGet.mockResolvedValueOnce({ data: mockDispute });
 
       const client = new DisputeClient({ apiBaseUrl: 'http://api', apiKey: 'tok' } as any);
       const result = await client.getDispute('esc-1');
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.data).toEqual({ id: 'dsp-1', status: 'open' });
+        const dispute: Dispute = result.data;
+        expect(dispute.id).toBe('dsp-1');
+        expect(dispute.status).toBe('open');
+        expect(dispute.reason).toBe('Milestone work not submitted');
+        expect(dispute.evidence).toBe('ipfs://QmEvidenceHash123');
       }
       expect(mockHttpGet).toHaveBeenCalledWith('/disputes/esc-1');
     });
