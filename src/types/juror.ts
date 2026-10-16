@@ -76,3 +76,13 @@ export interface RevealVoteResult {
   /** Hex-encoded string of the reconstructed commitment hash */
   commitmentHex: string;
 }
+
+/**
+ * Configuration options for JurorClient in-memory salt caching.
+ */
+export interface JurorClientOptions {
+  /** Maximum number of salts retained before evicting the oldest entry. */
+  maxStoredSalts?: number;
+  /** Lifetime of each stored salt in milliseconds; expired entries are evicted. */
+  saltTtlMs?: number;
+}

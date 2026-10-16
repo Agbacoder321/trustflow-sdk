@@ -70,6 +70,11 @@ export interface ResilientPollingOptions {
   maxBackoffMs?: number;
   /** Initial cursor when the store is empty. */
   initialCursor?: string;
+  /**
+   * If true, preserves seenKeys, seenSet, lastLedger, and lastCursor across stop/restart cycles.
+   * Defaults to false, resetting deduplication and gap-detection state for the new session.
+   */
+  resume?: boolean;
 }
 
 /**
@@ -271,6 +276,12 @@ export class EscrowMonitor {
   ): void {
     this.stopPolling();
     this.resilientStopped = false;
+    if (!options.resume) {
+      this.seenKeys = [];
+      this.seenSet.clear();
+      this.lastLedger = undefined;
+      this.lastCursor = undefined;
+    }
     const store = options.store ?? new InMemoryCursorStore(options.initialCursor);
     const dedupSize = options.dedupSize ?? 1000;
     const baseBackoffMs = options.baseBackoffMs ?? 1000;

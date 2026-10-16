@@ -201,4 +201,54 @@ describe('EscrowMonitor resilient polling', () => {
     monitor.stopPolling();
     expect(seen.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('does not leak dedup and gap state across stop and restart cycles unless resume is requested', async () => {
+    const monitor = new EscrowMonitor();
+    const seenSession1: string[] = [];
+    const seenSession2: string[] = [];
+    const gapsSession2: MonitorGapInfo[] = [];
+
+    monitor.on('escrow_created', (e) => {
+      seenSession1.push(e.id);
+    });
+
+    const e1 = parseEvent(raw('ev-1', 'pt-1', 10))!;
+    const store1 = new InMemoryCursorStore();
+
+    monitor.startResilientPolling(
+      10,
+      async () => [e1],
+      { store: store1, baseBackoffMs: 5, maxBackoffMs: 10 },
+    );
+    await waitFor(() => seenSession1.length >= 1);
+    monitor.stopPolling();
+
+    expect(seenSession1).toContain('ev-1');
+
+    // Second session with fresh store and resume: false (default)
+    const store2 = new InMemoryCursorStore();
+    monitor.onGapDetected((g) => void gapsSession2.push(g));
+    monitor.on('escrow_created', (e) => {
+      seenSession2.push(e.id);
+    });
+
+    let session2Polled = false;
+    monitor.startResilientPolling(
+      10,
+      async (cursor) => {
+        session2Polled = true;
+        // cursor must not carry over from previous session
+        expect(cursor).toBeUndefined();
+        return [e1];
+      },
+      { store: store2, baseBackoffMs: 5, maxBackoffMs: 10 },
+    );
+
+    await waitFor(() => session2Polled && seenSession2.length >= 1);
+    monitor.stopPolling();
+
+    // Event must not be deduped away in the fresh session
+    expect(seenSession2).toContain('ev-1');
+    expect(gapsSession2).toHaveLength(0);
+  });
 });

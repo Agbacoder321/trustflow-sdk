@@ -211,4 +211,44 @@ describe('commit-reveal voting helpers (Issue #373)', () => {
       expect(result.data.encrypted).toBe(true);
     }
   });
+
+  describe('storedSalts cache bounds and eviction', () => {
+    it('evicts oldest salt when maxStoredSalts limit is reached', () => {
+      const jurors = new JurorClient(CONFIG, { maxStoredSalts: 2 });
+      const c1 = jurors.createVoteCommitment(true);
+      const c2 = jurors.createVoteCommitment(false);
+
+      expect(jurors.getStoredSalt(c1.commitmentHex)).toBeDefined();
+      expect(jurors.getStoredSalt(c2.commitmentHex)).toBeDefined();
+
+      const c3 = jurors.createVoteCommitment(true);
+      expect(jurors.getStoredSalt(c1.commitmentHex)).toBeUndefined();
+      expect(jurors.getStoredSalt(c2.commitmentHex)).toBeDefined();
+      expect(jurors.getStoredSalt(c3.commitmentHex)).toBeDefined();
+    });
+
+    it('removes individual stored salt using removeStoredSalt', () => {
+      const jurors = new JurorClient(CONFIG);
+      const c1 = jurors.createVoteCommitment(true);
+      const c2 = jurors.createVoteCommitment(false);
+
+      expect(jurors.removeStoredSalt(c1.commitmentHex)).toBe(true);
+      expect(jurors.getStoredSalt(c1.commitmentHex)).toBeUndefined();
+      expect(jurors.getStoredSalt(c2.commitmentHex)).toBeDefined();
+
+      expect(jurors.removeStoredSalt(c1.commitmentHex)).toBe(false);
+      expect(jurors.removeStoredSalt(c2.commitment)).toBe(true);
+      expect(jurors.getStoredSalt(c2.commitmentHex)).toBeUndefined();
+    });
+
+    it('evicts expired salts when saltTtlMs is configured', async () => {
+      const jurors = new JurorClient(CONFIG, { saltTtlMs: 20 });
+      const c1 = jurors.createVoteCommitment(true);
+
+      expect(jurors.getStoredSalt(c1.commitmentHex)).toBeDefined();
+      await new Promise((r) => setTimeout(r, 30));
+
+      expect(jurors.getStoredSalt(c1.commitmentHex)).toBeUndefined();
+    });
+  });
 });
