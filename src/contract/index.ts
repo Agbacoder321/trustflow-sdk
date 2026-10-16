@@ -28,5 +28,6 @@ export {
   buildFundArgs,
   buildDisputeArgs,
   buildVoteArgs,
+  buildRevealArgs,
 } from './build';
 export type { SimulationResult, SimulateContractCallOptions } from './simulate';
