@@ -981,6 +981,41 @@ Provides juror operations with managed `loading` and `error` state:
 - `createVoteCommitment(voteForDepositor, salt?)` — generates a 32-byte salt commitment for commit-reveal voting
 - `revealVote(voteForDepositor, salt)` — verifies and creates a reveal payload matching contract preimage requirements
 
+## Node Connection Pooling (`@trustflow/sdk/node`)
+
+Node-only HTTP and HTTPS connection-pool factories and helpers:
+
+```typescript
+import {
+  createHttpAgent,
+  createHttpsAgent,
+  configureAxiosConnectionPool,
+  DEFAULT_POOL_CONFIG,
+  getHttpAgentStats,
+  monitorPoolHealth,
+  destroyPoolAgent,
+  type PoolConfig,
+  type PoolStats,
+  type PooledAgent,
+  type PoolMonitorConfig,
+} from '@trustflow/sdk/node';
+```
+
+### Functions
+
+- `createHttpAgent(config?: PoolConfig): http.Agent` — creates a keep-alive Node `http.Agent` with connection pooling.
+- `createHttpsAgent(config?: PoolConfig): https.Agent` — creates a keep-alive Node `https.Agent` with connection pooling.
+- `configureAxiosConnectionPool(instance: AxiosInstance, config?: PoolConfig): void` — attaches pooled HTTP and HTTPS agents to an Axios instance for long-running Node processes.
+- `getHttpAgentStats(agent: PooledAgent): PoolStats` — returns current active, free, and pending socket counts for an agent.
+- `monitorPoolHealth(agent: PooledAgent, config?: PoolMonitorConfig): () => void` — starts periodic health monitoring of socket utilization, returning a teardown callback.
+- `destroyPoolAgent(agent: PooledAgent): void` — safely drains and destroys an agent's idle and active sockets.
+
+### Configuration (`PoolConfig`)
+
+- `maxSockets` — Maximum number of sockets allowed per origin (default: 50).
+- `maxFreeSockets` — Maximum number of idle sockets kept open per origin (default: 10).
+- `socketTimeoutMs` — Inactivity timeout before a socket is destroyed (default: 30000ms).
+- `keepAliveInitialDelayMs` — Initial delay before keep-alive probes are sent (default: 1000ms).
 
 ## Testing Kit (`@trustflow/sdk/testing`)
 
