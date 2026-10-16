@@ -13,6 +13,7 @@ export type TrustFlowErrorCode =
   | 'MULTISIG_ERROR'
   | 'MULTISIG_THRESHOLD_NOT_MET'
   | 'MULTISIG_ALREADY_SIGNED'
+  | 'DUPLICATE_SIGNER'
   | 'MULTISIG_EXPIRED'
   | 'MULTISIG_INVALID_SIGNER'
   | 'MULTISIG_XDR_ERROR'
@@ -105,6 +106,20 @@ export class TrustFlowError extends Error {
 
   static multiSigExpired(operationId: string): TrustFlowError {
     return new TrustFlowError(`Multi-sig operation ${operationId} has expired`, 'MULTISIG_EXPIRED');
+  }
+
+  static multiSigAlreadySigned(address: string): TrustFlowError {
+    return new TrustFlowError(
+      `${address} has already signed this operation`,
+      'MULTISIG_ALREADY_SIGNED',
+    );
+  }
+
+  static duplicateSigner(address: string): TrustFlowError {
+    return new TrustFlowError(
+      `${address} has already signed this operation`,
+      'DUPLICATE_SIGNER',
+    );
   }
 
   static multiSigInvalidSigner(address: string): TrustFlowError {

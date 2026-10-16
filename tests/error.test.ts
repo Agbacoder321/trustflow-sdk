@@ -90,6 +90,20 @@ describe('TrustFlowError (Unified Error Model)', () => {
       expect(err.message).toBe('Multi-sig operation op-123 has expired');
     });
 
+    it('creates multiSigAlreadySigned error', () => {
+      const err = TrustFlowError.multiSigAlreadySigned('GBXYZ');
+      expect(err).toBeInstanceOf(TrustFlowError);
+      expect(err.code).toBe('MULTISIG_ALREADY_SIGNED');
+      expect(err.message).toBe('GBXYZ has already signed this operation');
+    });
+
+    it('creates duplicateSigner error', () => {
+      const err = TrustFlowError.duplicateSigner('GBXYZ');
+      expect(err).toBeInstanceOf(TrustFlowError);
+      expect(err.code).toBe('DUPLICATE_SIGNER');
+      expect(err.message).toBe('GBXYZ has already signed this operation');
+    });
+
     it('creates multiSigInvalidSigner error', () => {
       const err = TrustFlowError.multiSigInvalidSigner('GBXYZ');
       expect(err).toBeInstanceOf(TrustFlowError);

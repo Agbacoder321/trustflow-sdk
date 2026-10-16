@@ -605,11 +605,15 @@ export class MultiSigEscrowClient {
   }
 
   /**
-   * Returns the number of cryptographically verified signatures in an operation.
+   * Returns the number of distinct cryptographically verified signers in an operation.
    */
   private _getVerifiedCount(operation: MultiSigOperation): number {
-    return operation.collectedSignatures.filter((s) => s.verified).length;
+    const verifiedSigners = new Set(
+      operation.collectedSignatures.filter((s) => s.verified).map((s) => s.signerAddress),
+    );
+    return verifiedSigners.size;
   }
+
 
   /**
    * Merges `DecoratedSignature` entries from verified signer entries into the base envelope.
@@ -704,9 +708,9 @@ export class MultiSigEscrowClient {
 
   private _buildStatus(operation: MultiSigOperation): MultiSigStatus {
     const verifiedEntries = operation.collectedSignatures.filter((s) => s.verified);
-    const signersSigned = verifiedEntries.map((s) => s.signerAddress);
+    const signersSigned = Array.from(new Set(verifiedEntries.map((s) => s.signerAddress)));
     const signersRemaining = operation.signers.filter((s) => !signersSigned.includes(s));
-    const verifiedCount = verifiedEntries.length;
+    const verifiedCount = signersSigned.length;
 
     return {
       operationId: operation.operationId,

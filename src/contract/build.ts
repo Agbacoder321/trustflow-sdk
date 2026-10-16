@@ -150,3 +150,66 @@ export function buildVoteArgs(
     voteScVal,
   ];
 }
+
+/**
+ * Encodes a juror's vote reveal into contract call arguments.
+ *
+ * Encodes `disputeId` as a string, `jurorAddress` as an Address,
+ * `voteForDepositor` as a boolean (true for depositor, false for beneficiary),
+ * and `salt` as 32-byte ScVal bytes matching the contract's expected reveal signature.
+ *
+ * Note: commit-reveal voting does not support 'abstain'. Callers needing 'abstain'
+ * must cast a plaintext vote instead.
+ *
+ * @param disputeId - Unique identifier of the dispute
+ * @param jurorAddress - Stellar address of the revealing juror
+ * @param voteForDepositor - Boolean vote choice: true for depositor (1), false for beneficiary (0)
+ * @param salt - 32-byte secret salt used during commitment creation (Uint8Array or hex string)
+ * @returns Array of encoded ScVal contract call arguments
+ */
+export function buildRevealArgs(
+  disputeId: string,
+  jurorAddress: string,
+  voteForDepositor: boolean,
+  salt: Uint8Array | string,
+): unknown[] {
+  assertEscrowId(disputeId);
+  assertStellarAddress(jurorAddress, 'jurorAddress');
+
+  if ((voteForDepositor as unknown) === 'abstain') {
+    throw new TrustFlowError(
+      "Commit-reveal voting does not support 'abstain'. Callers needing 'abstain' must cast a plaintext vote instead.",
+      'VALIDATION_ERROR',
+    );
+  }
+
+  if (typeof voteForDepositor !== 'boolean') {
+    throw new TrustFlowError(
+      'voteForDepositor must be a boolean',
+      'VALIDATION_ERROR',
+    );
+  }
+
+  let saltBytes: Buffer;
+  if (typeof salt === 'string') {
+    if (salt.length !== 64 || !/^[0-9a-fA-F]+$/.test(salt)) {
+      throw new TrustFlowError('Salt hex string must be exactly 64 characters (32 bytes)', 'VALIDATION_ERROR');
+    }
+    saltBytes = Buffer.from(salt, 'hex');
+  } else if (salt instanceof Uint8Array) {
+    if (salt.length !== 32) {
+      throw new TrustFlowError('Salt must be exactly 32 bytes', 'VALIDATION_ERROR');
+    }
+    saltBytes = Buffer.from(salt);
+  } else {
+    throw new TrustFlowError('Salt must be a 32-byte Uint8Array or 64-character hex string', 'VALIDATION_ERROR');
+  }
+
+  return [
+    nativeToScVal(disputeId, { type: 'string' }),
+    new Address(jurorAddress).toScVal(),
+    nativeToScVal(voteForDepositor, { type: 'bool' }),
+    nativeToScVal(saltBytes, { type: 'bytes' }),
+  ];
+}
+
