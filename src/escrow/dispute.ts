@@ -1,7 +1,7 @@
 import type { TrustFlowClient } from '../client';
 import type { ContractConfig } from '../types/contract';
 import type { DisputeEscrowParams } from '../types';
-import { DisputeParams, SDKResult } from '../types/index';
+import { Dispute, DisputeParams, SDKResult } from '../types/index';
 import { TrustFlowError } from '../errors';
 import { buildDisputeArgs } from '../contract/build';
 import { createApiHttpClient, toApiErrorMessage } from '../utils/http';
@@ -185,12 +185,12 @@ export class DisputeClient {
    * if (result.ok) console.log(result.data);
    * ```
    */
-  async getDispute(escrowId: string): Promise<SDKResult<unknown>> {
+  async getDispute(escrowId: string): Promise<SDKResult<Dispute>> {
     if (!isValidEscrowId(escrowId)) {
       return { ok: false, error: 'escrowId is required' };
     }
     try {
-      const response = await this.http.get<unknown>(`/disputes/${encodeURIComponent(escrowId)}`);
+      const response = await this.http.get<Dispute>(`/disputes/${encodeURIComponent(escrowId)}`);
       return { ok: true, data: response.data };
     } catch (e) {
       logger.error(`Failed to get dispute for escrow ${escrowId}`, e);

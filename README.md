@@ -452,8 +452,8 @@ The SDK is under active development. Here's what's coming:
 ### Planned Features
 - [x] Multi-signature support for corporate escrows
 - [x] IPFS storage helpers for file uploads
-- [ ] Pagination support for high-volume queries
-- [ ] Event parsing utilities for XDR decoding
+- [x] Pagination support for high-volume queries
+- [x] Event parsing utilities for XDR decoding
 - [x] Juror voting system integration
 
 See our [GitHub Issues](https://github.com/trustflow-protocol/trustflow-sdk/issues) for detailed progress tracking.
@@ -487,8 +487,8 @@ We take security seriously. This SDK builds and signs financial transactions on 
 **Report security issues privately** via [SECURITY.md](./SECURITY.md) — do not open public issues for vulnerabilities.
 
 Security features:
-- **Strict Linting**: ESLint strict mode enforced across the codebase
-- **Input Validation**: All parameters validated with Zod schemas
+- **Linting & Code Quality**: ESLint configuration enforced across the codebase in CI
+- **Input Validation**: Critical transaction parameters validated with runtime checks; Zod schemas exported for consumer validation
 - **Type Safety**: TypeScript strict mode prevents runtime errors
 - **Test Coverage**: Critical paths covered by Jest integration tests
 - **Supported versions**: See [SECURITY.md](./SECURITY.md) for versioning and expected response times

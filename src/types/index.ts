@@ -40,6 +40,20 @@ export interface DisputeParams {
   evidence?: string;
 }
 
+/**
+ * Representation of an escrow dispute returned by the TrustFlow backend (Issue #471).
+ */
+export interface Dispute {
+  id: string;
+  escrowId?: EscrowId;
+  reason?: string;
+  status: 'open' | 'resolving' | 'resolved' | 'cancelled' | string;
+  evidence?: string;
+  createdAt?: number | string;
+  resolvedAt?: number | string;
+  jurorCount?: number;
+}
+
 /** Standard result envelope for SDK operations. */
 export type SDKResult<T> = { ok: true; data: T } | { ok: false; error: string };
 

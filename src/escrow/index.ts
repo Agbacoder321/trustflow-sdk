@@ -6,9 +6,16 @@ export type {
   EscrowMonitorOnError,
   EscrowMonitorErrorContext,
   EscrowMonitorErrorPhase,
+  EscrowMonitorOnReconnect,
+  MonitorReconnectInfo,
+  EscrowMonitorOnGap,
+  MonitorGapInfo,
+  ResilientPollingOptions,
+  CursorAwareFetchFn,
 } from './monitor';
 export { DisputeClient, disputeEscrow } from './dispute';
 export type { DisputeClientOptions } from './dispute';
+export type { Dispute } from '../types/index';
 export { MultiSigEscrowClient } from './multisig';
 export { createEscrow } from './create';
 export { releaseEscrow } from './release';

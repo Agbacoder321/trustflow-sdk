@@ -1,4 +1,4 @@
-﻿import * as SDK from '../src/index';
+import * as SDK from '../src/index';
 import * as EscrowBarrel from '../src/escrow/index';
 
 describe('SDK Barrel Public Export Surface Integration Tests', () => {
@@ -38,5 +38,45 @@ describe('SDK Barrel Public Export Surface Integration Tests', () => {
         expect(options).toEqual({});
         expect(phase).toBe('fetch');
         expect(typeof onError).toBe('function');
+    });
+
+    it('makes the resilient-polling and dispute types nameable from the package root and escrow barrel (#468, #471)', () => {
+        const onReconnect: SDK.EscrowMonitorOnReconnect = (_info: SDK.MonitorReconnectInfo) => {};
+        const onGap: SDK.EscrowMonitorOnGap = (_info: SDK.MonitorGapInfo) => {};
+        const resilientOpts: SDK.ResilientPollingOptions = {};
+        const fetchFn: SDK.CursorAwareFetchFn = async (_cursor?: string) => ({
+            events: [],
+            cursor: null,
+            hasMore: false,
+        });
+
+        const onReconnectBarrel: EscrowBarrel.EscrowMonitorOnReconnect = (_info: EscrowBarrel.MonitorReconnectInfo) => {};
+        const onGapBarrel: EscrowBarrel.EscrowMonitorOnGap = (_info: EscrowBarrel.MonitorGapInfo) => {};
+        const resilientOptsBarrel: EscrowBarrel.ResilientPollingOptions = {};
+        const fetchFnBarrel: EscrowBarrel.CursorAwareFetchFn = async (_cursor?: string) => ({
+            events: [],
+            cursor: null,
+            hasMore: false,
+        });
+
+        const disputeRoot: SDK.Dispute = {
+            id: 'dsp-1',
+            status: 'open',
+        };
+        const disputeBarrel: EscrowBarrel.Dispute = {
+            id: 'dsp-2',
+            status: 'resolved',
+        };
+
+        expect(typeof onReconnect).toBe('function');
+        expect(typeof onGap).toBe('function');
+        expect(resilientOpts).toEqual({});
+        expect(typeof fetchFn).toBe('function');
+        expect(typeof onReconnectBarrel).toBe('function');
+        expect(typeof onGapBarrel).toBe('function');
+        expect(resilientOptsBarrel).toEqual({});
+        expect(typeof fetchFnBarrel).toBe('function');
+        expect(disputeRoot.id).toBe('dsp-1');
+        expect(disputeBarrel.id).toBe('dsp-2');
     });
 });
