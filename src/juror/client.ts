@@ -6,7 +6,9 @@ import type {
   VoteChoice,
   VoteCommitment,
   RevealVoteResult,
+  JurorClientOptions,
 } from '../types/juror';
+export type { JurorClientOptions } from '../types/juror';
 import type { SDKResult } from '../types/index';
 import { isValidEscrowId, isValidStellarAddress, isValidBase64 } from '../utils/validation';
 import { buildVoteArgs } from '../contract/build';
@@ -114,9 +116,12 @@ export function revealVote(voteForDepositor: boolean, salt: Uint8Array): RevealV
  * ```
  */
 export class JurorClient {
-  private readonly storedSalts = new Map<string, Uint8Array>();
+  private readonly storedSalts = new Map<string, { salt: Uint8Array; expiresAt?: number }>();
 
-  constructor(private readonly config: ContractConfig) {}
+  constructor(
+    private readonly config: ContractConfig,
+    private readonly options: JurorClientOptions = {},
+  ) {}
 
   /**
    * Constructs a vote commitment matching the contract hash_vote preimage layout:
@@ -124,13 +129,41 @@ export class JurorClient {
    * Securely generates a 32-byte random salt if not provided, and stores the salt
    * locally on this client instance for the subsequent reveal phase.
    *
+   * Evicts expired salts if `saltTtlMs` is configured, and evicts oldest entries if
+   * `maxStoredSalts` capacity limit is exceeded.
+   *
    * @param voteForDepositor - true for depositor (1), false for beneficiary (0)
    * @param salt - Optional 32-byte salt; generated automatically if omitted
    * @returns VoteCommitment with commitment hash, salt, and hex/base64 strings
    */
   createVoteCommitment(voteForDepositor: boolean, salt?: Uint8Array): VoteCommitment {
     const commitment = createVoteCommitment(voteForDepositor, salt);
-    this.storedSalts.set(commitment.commitmentHex, commitment.salt);
+    const key = commitment.commitmentHex;
+
+    if (this.options.saltTtlMs !== undefined) {
+      const now = Date.now();
+      for (const [k, v] of this.storedSalts.entries()) {
+        if (v.expiresAt !== undefined && v.expiresAt <= now) {
+          this.storedSalts.delete(k);
+        }
+      }
+    }
+
+    if (
+      this.options.maxStoredSalts !== undefined &&
+      this.options.maxStoredSalts > 0 &&
+      this.storedSalts.size >= this.options.maxStoredSalts &&
+      !this.storedSalts.has(key)
+    ) {
+      const oldestKey = this.storedSalts.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.storedSalts.delete(oldestKey);
+      }
+    }
+
+    const expiresAt =
+      this.options.saltTtlMs !== undefined ? Date.now() + this.options.saltTtlMs : undefined;
+    this.storedSalts.set(key, { salt: commitment.salt, expiresAt });
     return commitment;
   }
 
@@ -147,16 +180,37 @@ export class JurorClient {
 
   /**
    * Retrieves a locally stored salt by commitment hash (Uint8Array or hex string).
+   * Expired salts are evicted lazily upon read.
    *
    * @param commitment - The commitment hash Uint8Array or hex string
-   * @returns The 32-byte salt if stored locally, or undefined
+   * @returns The 32-byte salt if stored locally and not expired, or undefined
    */
   getStoredSalt(commitment: Uint8Array | string): Uint8Array | undefined {
     const key =
       typeof commitment === 'string'
         ? commitment.toLowerCase()
         : Buffer.from(commitment).toString('hex');
-    return this.storedSalts.get(key);
+    const entry = this.storedSalts.get(key);
+    if (!entry) return undefined;
+    if (entry.expiresAt !== undefined && entry.expiresAt <= Date.now()) {
+      this.storedSalts.delete(key);
+      return undefined;
+    }
+    return entry.salt;
+  }
+
+  /**
+   * Removes an individual locally stored salt by commitment hash (Uint8Array or hex string).
+   *
+   * @param commitment - The commitment hash Uint8Array or hex string
+   * @returns true if an entry existed and was removed, false otherwise
+   */
+  removeStoredSalt(commitment: Uint8Array | string): boolean {
+    const key =
+      typeof commitment === 'string'
+        ? commitment.toLowerCase()
+        : Buffer.from(commitment).toString('hex');
+    return this.storedSalts.delete(key);
   }
 
   /**
