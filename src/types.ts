@@ -85,6 +85,13 @@ export interface Escrow {
   expiresAt?: number;
   deadline?: number;
   metadata?: Record<string, string>;
+  milestones?: Array<{
+    amount?: bigint;
+    description?: string;
+    deadline?: Date | number | string;
+    expiration?: Date | number | string;
+    [key: string]: unknown;
+  }>;
 }
 
 /** Parameters for creating an escrow. */

@@ -22,6 +22,7 @@ export { simulateContractCall } from './simulate';
 export { simulateTransaction, type SimulationOutcome } from './simulation';
 export {
   buildCreateEscrowArgs,
+  buildCancelArgs,
   buildReleaseArgs,
   buildClaimArgs,
   buildFundArgs,
