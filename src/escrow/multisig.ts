@@ -6,6 +6,7 @@ import type { ContractConfig } from '../types/contract';
 import type {
   InitMultiSigParams,
   AddSignatureParams,
+  MultiSigConfig,
   MultiSigOperation,
   MultiSigOperationStatus,
   MultiSigOperationType,
@@ -209,6 +210,20 @@ export class MultiSigEscrowClient {
     }
 
     return { ok: true, data: this._buildStatus(operation) };
+  }
+
+  /**
+   * Retrieves the {@link MultiSigConfig} (escrowId, threshold, signers) for an operation.
+   * Returns undefined if the operationId is not found.
+   */
+  getConfig(operationId: string): MultiSigConfig | undefined {
+    const operation = this.operations.get(operationId);
+    if (!operation) return undefined;
+    return {
+      escrowId: operation.escrowId,
+      threshold: operation.threshold,
+      signers: [...operation.signers],
+    };
   }
 
   /**
