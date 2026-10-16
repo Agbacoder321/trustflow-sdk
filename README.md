@@ -434,8 +434,7 @@ The `@trustflow/sdk/escrow`, `@trustflow/sdk/wallet`, and `@trustflow/sdk/utils`
 - **[Versioning Policy](./docs/VERSIONING.md)** — Semantic versioning, what counts as a breaking change, and the deprecation policy
 - **[Upgrading](./docs/UPGRADING.md)** — Migration steps for releases with breaking changes, and current deprecations
 - **[Examples](./examples/)** — Working code examples for common use cases
-- **API reference (generated)** — run `npm run docs` to build a browsable HTML API reference
-  from JSDoc comments into `docs/reference/` (not committed; regenerate locally or in CI)
+- **[API Reference (TypeDoc)](https://trustflow-protocol.github.io/trustflow-sdk/)** — Browsable HTML API reference generated from JSDoc comments (run `npm run docs` to regenerate locally)
 
 ---
 
