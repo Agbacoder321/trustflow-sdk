@@ -14,6 +14,7 @@ import { submitTransaction } from '../src/stellar/transaction';
 import type {
   AddSignatureParams,
   InitMultiSigParams,
+  MultiSigConfig,
   MultiSigStatus,
   MultiSigStateSnapshot,
 } from '../src/types/multisig';
@@ -925,6 +926,45 @@ describe('MultiSigEscrowClient against the real client', () => {
         ok: false,
         error,
       });
+    });
+  });
+
+  describe('MultiSigConfig integration (#442)', () => {
+    it('provides MultiSigConfig through client.getConfig(operationId)', () => {
+      const client = makeClient();
+      const operationId = initOperation(client);
+
+      const config: MultiSigConfig | undefined = client.getConfig(operationId);
+      expect(config).toBeDefined();
+      expect(config?.escrowId).toBe(ESCROW_ID);
+      expect(config?.threshold).toBe(2);
+      expect(config?.signers).toEqual(SIGNER_ADDRESSES);
+    });
+
+    it('returns undefined from getConfig for unknown operationId', () => {
+      const client = makeClient();
+      expect(client.getConfig('unknown-id')).toBeUndefined();
+    });
+
+    it('accepts MultiSigConfig as part of InitMultiSigParams', () => {
+      const client = makeClient();
+      const baseConfig: MultiSigConfig = {
+        escrowId: ESCROW_ID,
+        threshold: 2,
+        signers: SIGNER_ADDRESSES,
+      };
+      const params: InitMultiSigParams = {
+        ...baseConfig,
+        operationType: 'release',
+        unsignedXdr: baseTransaction().build().toXDR(),
+        networkPassphrase: NETWORK,
+      };
+
+      const res = client.initMultiSigOperation(params);
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(client.getConfig(res.data.operationId)).toEqual(baseConfig);
+      }
     });
   });
 });

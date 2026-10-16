@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### MultiSigConfig integration (#442)
+
+- Issue #442: Established `InitMultiSigParams extends MultiSigConfig`, added `MultiSigEscrowClient.getConfig` to expose operation configuration, and added integration tests.
+
+### Contract symbols export from root (#443)
+
+- Issue #443: Exported all `src/contract` symbols (including `AbstractContractClient`, `SignAndSubmitFn`, and `SimulationResult`) from `@trustflow/sdk`, fixing compilation of code produced by `generateTypeScriptBindings()`.
+
+### Canonical repository URLs in package.json (#450)
+
+- Issue #450: Corrected `repository.url`, `bugs.url`, and `homepage` in `package.json` to point to `trustflow-protocol/trustflow-sdk`.
+
+### Fee estimation types re-export (#451)
+
+- Issue #451: Re-exported `FeeEstimate`, `FeeRange`, and `EstimateFeeOptions` from `src/tx-pipeline/index.ts` and `@trustflow/sdk`.
+
 ### CI formatting check with Prettier (#472)
 
 - Issue #472: Added `Check formatting` step (`npm run format:check`) to GitHub Actions CI workflow and formatted all source files with Prettier.

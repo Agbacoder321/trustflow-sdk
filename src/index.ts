@@ -41,7 +41,7 @@ export type {
   EscrowReleasedData,
   DisputeRaisedData,
 } from './events';
-export { SorobanSpec } from './contract/spec';
+export * from './contract';
 export { TrustFlowClient } from './client';
 export type { GetBalanceOptions } from './client';
 export * from './errors';
