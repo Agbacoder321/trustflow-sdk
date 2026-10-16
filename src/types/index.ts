@@ -9,6 +9,13 @@ export type StellarAddress = string;
 export type EscrowId = string;
 export type TxHash = string;
 
+/** Representation of a single milestone in an escrow. */
+export interface EscrowMilestone {
+  amount: bigint;
+  description?: string;
+  deadline?: Date | number | string;
+}
+
 /** Parameters for configuring an escrow. */
 export interface EscrowParams {
   /** Depositor Stellar account address. */
@@ -21,6 +28,10 @@ export interface EscrowParams {
   tokenAddress?: StellarAddress;
   /** Optional expiration duration in blocks. */
   deadlineBlocks?: number;
+  /** Optional designated arbitrator Stellar account address. */
+  arbitrator?: StellarAddress;
+  /** Optional list of milestones for multi-milestone escrow. */
+  milestones?: EscrowMilestone[];
 }
 
 /** State of an escrow. */

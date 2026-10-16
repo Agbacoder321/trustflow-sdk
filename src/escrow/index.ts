@@ -19,5 +19,11 @@ export type { Dispute } from '../types/index';
 export { MultiSigEscrowClient } from './multisig';
 export { createEscrow } from './create';
 export { releaseEscrow } from './release';
-export { cancelEscrow, getEscrow } from './cancel';
+export {
+  cancelEscrow,
+  getEscrow,
+  filterUnreleasedMilestones,
+  encodeMilestoneIndices,
+  type MilestoneCancellationInfo,
+} from './cancel';
 export { TrustFlowError } from '../errors';

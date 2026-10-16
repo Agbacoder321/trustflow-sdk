@@ -15,12 +15,57 @@ export function buildCreateEscrowArgs(params: CreateEscrowParams): unknown[] {
   // TrustFlowError.validation(...) instead of whatever `new Address()` throws.
   assertStellarAddress(params.sender, 'sender');
   assertStellarAddress(params.recipient, 'recipient');
-  return [
+  const args: unknown[] = [
     new Address(params.sender).toScVal(),
     new Address(params.recipient).toScVal(),
     nativeToScVal(params.amountStroops, { type: 'i128' }),
     nativeToScVal(params.durationBlocks ?? 0, { type: 'u32' }),
   ];
+
+  if (params.milestones && params.milestones.length > 0) {
+    const encodedMilestones = params.milestones.map((m) => {
+      const entry: Record<string, unknown> = {};
+      if (m.amount !== undefined) {
+        entry.amount = nativeToScVal(m.amount, { type: 'i128' });
+      }
+      const dl = m.deadline ?? m.expiration;
+      if (dl !== undefined) {
+        const sec = typeof dl === 'number' ? dl : Math.floor(new Date(dl).getTime() / 1000);
+        entry.deadline = nativeToScVal(sec, { type: 'u64' });
+      }
+      if (m.description !== undefined) {
+        entry.description = nativeToScVal(m.description, { type: 'string' });
+      }
+      return nativeToScVal(entry);
+    });
+    args.push(nativeToScVal(encodedMilestones));
+  }
+
+  return args;
+}
+
+/**
+ * Encodes cancellation arguments for an escrow.
+ *
+ * Encodes `escrowId` as a string and unreleased milestone indices as a Soroban
+ * `Vec<u32>` ScVal matching the contract's expected cancellation signature.
+ *
+ * @param escrowId - Unique identifier of the escrow to cancel
+ * @param unreleasedMilestoneIndices - Array of unreleased milestone indices (default empty)
+ * @returns Array of encoded ScVal contract call arguments
+ */
+export function buildCancelArgs(
+  escrowId: string,
+  unreleasedMilestoneIndices: number[] = [],
+): unknown[] {
+  assertEscrowId(escrowId);
+  const elements = unreleasedMilestoneIndices.map((idx) => {
+    if (!Number.isInteger(idx) || idx < 0) {
+      throw TrustFlowError.validation('milestoneIndex', 'Must be a non-negative integer');
+    }
+    return nativeToScVal(idx, { type: 'u32' });
+  });
+  return [nativeToScVal(escrowId, { type: 'string' }), nativeToScVal(elements)];
 }
 
 export function buildReleaseArgs(escrowId: string, caller: string): unknown[] {
