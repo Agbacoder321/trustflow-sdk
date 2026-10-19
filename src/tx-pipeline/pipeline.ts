@@ -723,7 +723,30 @@ export class TransactionPipeline {
       return submitted;
     }
 
+    // Reload account sequence before building fee-bump to prevent collision if original was confirmed
     this.pipelineLogger.info('Attempting fee-bump retry', { feeSource: feeBumpOptions.feeSource });
+    const reloaded = await withRetry(
+      () => this.server.getAccount(params.sourceAccount),
+      params.prepare,
+      'assemble',
+      this.client.timeoutMs,
+    );
+    if (reloaded.ok) {
+      // If we successfully reloaded, use the fresh sequence for the fee-bump's inner transaction
+      const freshTx = new TransactionBuilder(reloaded.data, {
+        fee: prepared.data.fee,
+        networkPassphrase: this.client.getNetworkPassphrase(),
+      }).setTimeout(prepared.data.timebounds?.maxTime ?? 30);
+
+      for (const op of prepared.data.operations) {
+        freshTx.addOperation(op);
+      }
+      if (prepared.data.memo) {
+        freshTx.addMemo(prepared.data.memo);
+      }
+      prepared.data = freshTx.build();
+    }
+
     const feeBumped = this.buildFeeBump(prepared.data, feeBumpOptions);
     if (!feeBumped.ok) {
       // The escalation is a recovery attempt: if the fee-bump envelope cannot
