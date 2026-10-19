@@ -7,6 +7,7 @@ import { createApiHttpClient, toApiErrorMessage } from '../utils/http';
 import type { ApiRetryConfig } from '../utils/http';
 import type { HttpInterceptors } from '../utils/interceptors';
 import { TrustFlowError } from '../errors';
+import { createCipheriv, createDecipheriv, randomBytes, createPublicKey } from 'crypto';
 
 /** Default upload endpoint — a raw-body IPFS upload API (e.g. web3.storage-compatible). */
 const DEFAULT_IPFS_API_URL = 'https://api.web3.storage/upload';
@@ -58,6 +59,15 @@ export interface IPFSUploadResult {
 export interface IPFSResolveOptions {
   /** Request timeout in milliseconds for gateway resolution. */
   timeoutMs?: number;
+}
+
+export interface EncryptedData {
+  /** Base64-encoded initialization vector */
+  iv: string;
+  /** Base64-encoded encrypted data */
+  data: string;
+  /** Base64-encoded authentication tag for GCM mode */
+  tag: string;
 }
 
 /**
@@ -222,5 +232,59 @@ export class IPFSStorage {
       `Failed to resolve IPFS CID "${cid}" from gateways. Errors: ${errors.join('; ')}`,
       'STORAGE_GATEWAY_ERROR',
     );
+  }
+
+  /**
+   * Encrypts data using AES-256-GCM (authenticated encryption).
+   *
+   * @param plaintext - Data to encrypt
+   * @param key - 32-byte encryption key (256 bits)
+   * @returns Object containing IV, encrypted data, and authentication tag, all base64-encoded
+   * @throws {TrustFlowError} if encryption fails
+   */
+  encrypt(plaintext: Buffer | string | Uint8Array, key: Buffer | Uint8Array): EncryptedData {
+    if (key.length !== 32) {
+      throw TrustFlowError.validation('key', 'Encryption key must be exactly 32 bytes (256 bits)');
+    }
+    try {
+      const iv = randomBytes(12);
+      const data = typeof plaintext === 'string' ? Buffer.from(plaintext, 'utf8') : Buffer.from(plaintext);
+      const cipher = createCipheriv('aes-256-gcm', key, iv);
+      const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+      const tag = cipher.getAuthTag();
+
+      return {
+        iv: iv.toString('base64'),
+        data: encrypted.toString('base64'),
+        tag: tag.toString('base64'),
+      };
+    } catch (e) {
+      throw TrustFlowError.wrap(e, 'encryption failed');
+    }
+  }
+
+  /**
+   * Decrypts data encrypted with {@link encrypt}.
+   *
+   * @param encrypted - Object with base64-encoded IV, data, and authentication tag
+   * @param key - 32-byte decryption key (256 bits) — must match the key used for encryption
+   * @returns Decrypted plaintext as a Buffer
+   * @throws {TrustFlowError} if decryption fails or authentication fails
+   */
+  decrypt(encrypted: EncryptedData, key: Buffer | Uint8Array): Buffer {
+    if (key.length !== 32) {
+      throw TrustFlowError.validation('key', 'Decryption key must be exactly 32 bytes (256 bits)');
+    }
+    try {
+      const iv = Buffer.from(encrypted.iv, 'base64');
+      const data = Buffer.from(encrypted.data, 'base64');
+      const tag = Buffer.from(encrypted.tag, 'base64');
+
+      const decipher = createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(tag);
+      return Buffer.concat([decipher.update(data), decipher.final()]);
+    } catch (e) {
+      throw TrustFlowError.wrap(e, 'decryption failed — likely invalid key or corrupted data');
+    }
   }
 }

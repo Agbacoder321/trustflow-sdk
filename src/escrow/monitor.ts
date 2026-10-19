@@ -104,8 +104,18 @@ export type CursorAwareFetchFn = (cursor?: string) => Promise<ParsedTrustFlowEve
  * is older than the RPC retention window it cannot be backfilled and is
  * reported as a gap.
  */
+export interface TopicFilter {
+  /** Event type to filter */
+  type: TrustFlowEventType;
+  /** Topic index to match (e.g., 0 for event type, 1 for escrowId, 2 for sender) */
+  topicIndex: number;
+  /** Expected value at the topic index */
+  value: string;
+}
+
 export class EscrowMonitor {
   private handlers = new Map<string, Set<EventHandler>>();
+  private topicFilters: TopicFilter[] = [];
   private pollingInterval?: ReturnType<typeof setInterval>;
   private resilientTimer?: ReturnType<typeof setTimeout>;
   private resilientStopped = true;
@@ -211,15 +221,96 @@ export class EscrowMonitor {
   }
 
   /**
+   * Add a topic-based filter for contract events.
+   * Events matching the filter will only be delivered to handlers registered for that event type.
+   *
+   * Useful for filtering events by specific values in the contract event topics,
+   * such as listening only for events related to a specific escrow ID or account.
+   *
+   * @param filter - Topic filter criteria
+   * @returns `this` for chaining
+   *
+   * @example
+   * ```ts
+   * // Only deliver escrow_created events where sender is 'GSENDER...'
+   * monitor.addTopicFilter({
+   *   type: 'escrow_created',
+   *   topicIndex: 2,
+   *   value: 'GSENDER...'
+   * });
+   * ```
+   */
+  addTopicFilter(filter: TopicFilter): this {
+    // Prevent duplicate filters
+    const exists = this.topicFilters.some(
+      (f) => f.type === filter.type && f.topicIndex === filter.topicIndex && f.value === filter.value,
+    );
+    if (!exists) {
+      this.topicFilters.push(filter);
+    }
+    return this;
+  }
+
+  /**
+   * Remove a previously registered topic filter.
+   *
+   * @param filter - Topic filter to remove
+   * @returns `this` for chaining
+   */
+  removeTopicFilter(filter: TopicFilter): this {
+    this.topicFilters = this.topicFilters.filter(
+      (f) => !(f.type === filter.type && f.topicIndex === filter.topicIndex && f.value === filter.value),
+    );
+    return this;
+  }
+
+  /**
+   * Check if an event matches all registered topic filters for its type.
+   * @internal
+   */
+  private matchesTopicFilters(event: ParsedTrustFlowEvent): boolean {
+    const filtersForType = this.topicFilters.filter((f) => f.type === event.type);
+    if (filtersForType.length === 0) {
+      return true; // No filters for this type, passes
+    }
+    // All filters for this event type must match
+    return filtersForType.every((filter) => {
+      // This would require access to raw topics, which we don't have in ParsedTrustFlowEvent
+      // For now, we match based on data properties when available
+      if (event.type === 'escrow_created' && 'data' in event) {
+        const data = event.data as any;
+        if (filter.topicIndex === 1) return data.escrowId === filter.value;
+        if (filter.topicIndex === 2) return data.sender === filter.value;
+        if (filter.topicIndex === 3) return data.recipient === filter.value;
+      }
+      if (event.type === 'escrow_released' && 'data' in event) {
+        const data = event.data as any;
+        if (filter.topicIndex === 1) return data.escrowId === filter.value;
+        if (filter.topicIndex === 2) return data.recipient === filter.value;
+      }
+      if (event.type === 'dispute_raised' && 'data' in event) {
+        const data = event.data as any;
+        if (filter.topicIndex === 1) return data.escrowId === filter.value;
+        if (filter.topicIndex === 2) return data.raisedBy === filter.value;
+      }
+      return false;
+    });
+  }
+
+  /**
    * Dispatch a batch of already-parsed events to their registered handlers
    * (plus any `'*'` wildcard handlers). Handler rejections are logged and
    * forwarded to {@link EscrowMonitor.onError}, not thrown, so one bad handler
    * can't stop the rest.
+   *
+   * Events are filtered by any registered topic filters before dispatch.
    */
   deliver(events: ParsedTrustFlowEvent[]): void {
     if (!Array.isArray(events)) return;
     for (const event of events) {
       if (!event || !event.type) continue;
+      // Apply topic filters
+      if (!this.matchesTopicFilters(event)) continue;
       const handlers = this.handlers.get(event.type) ?? new Set<EventHandler>();
       const wildcards = this.handlers.get('*') ?? new Set<EventHandler>();
       [...handlers, ...wildcards].forEach((h) => {
