@@ -36,11 +36,18 @@ jobs:
         uses: github/codeql-action/analyze@ce5e7eeac396d720fe2d802714996c8ce561e311 # v3.28.11
 
   audit:
-    name: NPM Audit
+    name: NPM Audit (${{ matrix.directory }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - directory: ""
+          - directory: "examples/react"
 
     steps:
       - name: Checkout repository
@@ -52,4 +59,9 @@ jobs:
           node-version: 20
 
       - name: Run NPM Audit
-        run: npm audit --audit-level=high
+        run: |
+          if [ -n "${{ matrix.directory }}" ]; then
+            cd ${{ matrix.directory }}
+          fi
+          npm ci
+          npm audit --audit-level=high
