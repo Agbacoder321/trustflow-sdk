@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Typed milestone expiration return shape (#440)
+
+- Issue #440: `normalizeMilestoneExpiration` now has overloads instead of returning `any`. A single expiration returns `number`, and an array of milestones returns `Array<T & { deadline: number }>`.
+
+### AccountBalanceMonitor overlap guard and webhook timeout (#441)
+
+- Issue #441: `AccountBalanceMonitor.checkNow` no longer runs overlapping balance checks. A tick that fires while a check is still awaiting `fetchFn` reuses that check's result, so at most one `fetchFn` call is in flight. The low-balance webhook POST is now bounded by a timeout, configurable with the new `AccountMonitorConfig.webhookTimeoutMs` (default 10,000ms), so a hung endpoint cannot stall polling.
+
+### Public API documentation coverage check (#452)
+
+- Issue #452: `scripts/check-doc-coverage.js` now follows `export *` and `export { ... } from` re-exports from `src/index.ts`, so it checks the real public surface. It is wired up as `npm run check-docs` and runs in CI. Symbols that were already undocumented when the check was added are recorded in `scripts/doc-coverage-baseline.json`, so only new undocumented exports fail the check.
+
+### invokeContract error codes on the result (#453)
+
+- Issue #453: `ContractCallResult` has a new `code?: TrustFlowErrorCode` field. `invokeContract` sets it when a `TrustFlowError` is caught, so callers can branch on `TIMEOUT` or `ACCOUNT_NOT_FOUND` instead of parsing `error`. An unregistered `options.account` now returns `{ success: false, code: 'ACCOUNT_NOT_FOUND' }` instead of throwing, matching the documented never-throws contract.
+
 ### Wallet adapter implementation (#435)
 
 - Issue #435: Added `createFreighterAdapter()` to `@trustflow/sdk/wallet`, a `WalletAdapter` implementation backed by the injected Freighter extension, and `MockWalletAdapter.asWalletAdapter()` in `@trustflow/sdk/testing`. Added `signMessage` to the documented `WalletAdapter` interface.
