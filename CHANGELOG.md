@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Albedo wallet network (#430)
+
+- Issue #430: `connectWallet('albedo')` now returns the network the Albedo wallet reports (`public` and `pubnet` normalize to `MAINNET`) instead of always returning `TESTNET`. `AlbedoWallet.publicKey` may include a `network` field. When the wallet does not report one, the result falls back to `TESTNET`, the same as the Freighter path.
+
+### Authorization entries in invokeContract signAndSubmit (#433)
+
+- Issue #433: `invokeContract` with `signAndSubmit` now assembles the transaction from the full parsed simulation response, so the Soroban authorization entries (`result.auth`) are carried into the `invokeHostFunction` operation. Previously it rebuilt a partial response, and every contract call that required signing and submitting failed inside `rpc.assembleTransaction`. `SimulationOutcome` has a new `response` field holding that parsed response.
+
+### Re-verification of imported multi-sig signatures (#434)
+
+- Issue #434: `MultiSigEscrowClient.importState` no longer trusts a stored `verified: true` flag. Each imported signature is checked again against the snapshot's transaction, and any that do not verify are kept as unverified, so they do not count towards the threshold. Snapshots are also rejected when a `signers` entry is not a valid Stellar address, or when a `collectedSignatures` entry is missing `signerAddress`, `signedXdr` or `addedAt`.
+
+### Client-side request body size validation (#436)
+
+- Issue #436: `createApiHttpClient` now checks the size of JSON request bodies before they are sent, using `validateRequestSize`. An oversized body rejects with a `VALIDATION_ERROR` and no network call is made. The limit is set with the new `ApiHttpClientOptions.requestValidation` option and defaults to 10MB. Binary and form bodies, such as IPFS uploads, are not measured. Local validation errors are reported by their message rather than as "Network error".
+
 ### Typed milestone expiration return shape (#440)
 
 - Issue #440: `normalizeMilestoneExpiration` now has overloads instead of returning `any`. A single expiration returns `number`, and an array of milestones returns `Array<T & { deadline: number }>`.
