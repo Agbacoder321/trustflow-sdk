@@ -117,6 +117,62 @@ describe('contract module', () => {
       expect(result.returnValue).toBe('value');
     });
 
+    it('surfaces the TIMEOUT code of a thrown TrustFlowError on the result', async () => {
+      const mockServer = {
+        getAccount: jest.fn(() => new Promise(() => {})),
+        simulateTransaction: jest.fn(),
+      };
+      (rpc.Server as jest.Mock).mockImplementation(() => mockServer);
+      (Contract as jest.Mock).mockImplementation(() => ({ call: jest.fn().mockReturnValue({}) }));
+
+      const result = await invokeContract(mockClient, 'release', [], 'GBM...', undefined, {
+        timeoutMs: 10,
+        retry: { attempts: 1 },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.code).toBe('TIMEOUT');
+      expect(result.error).toMatch(/Timed out after 10ms/);
+    });
+
+    it('surfaces ACCOUNT_NOT_FOUND on the result for an unregistered account', async () => {
+      const mockServer = {
+        getAccount: jest.fn(),
+        simulateTransaction: jest.fn(),
+      };
+      (rpc.Server as jest.Mock).mockImplementation(() => mockServer);
+      (mockClient.resolveAccount as unknown as jest.Mock).mockImplementationOnce(() => {
+        throw TrustFlowError.accountNotFound('alice');
+      });
+
+      const result = await invokeContract(mockClient, 'release', [], 'GBM...', undefined, {
+        account: 'alice',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.code).toBe('ACCOUNT_NOT_FOUND');
+      expect(result.error).toMatch(/No account context registered for "alice"/);
+      expect(mockServer.getAccount).not.toHaveBeenCalled();
+    });
+
+    it('leaves code unset when the failure is not a TrustFlowError', async () => {
+      (rpc.Api.isSimulationError as unknown as jest.Mock).mockReturnValue(false);
+      const mockServer = {
+        getAccount: jest.fn().mockRejectedValue(new Error('boom')),
+        simulateTransaction: jest.fn(),
+      };
+      (rpc.Server as jest.Mock).mockImplementation(() => mockServer);
+      (Contract as jest.Mock).mockImplementation(() => ({ call: jest.fn().mockReturnValue({}) }));
+
+      const result = await invokeContract(mockClient, 'release', [], 'GBM...', undefined, {
+        retry: { attempts: 1 },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('boom');
+      expect(result.code).toBeUndefined();
+    });
+
     it('signs and submits transaction if signAndSubmit is provided', async () => {
       (rpc.Api.isSimulationError as unknown as jest.Mock).mockReturnValue(false);
       const mockServer = {

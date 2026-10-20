@@ -261,10 +261,23 @@ export function validateFutureExpiration(
 
 /**
  * Normalizes milestone expiration or an array of milestones with sequential deadline checks.
+ *
+ * A single expiration returns UTC epoch seconds; an array returns each milestone
+ * with its `deadline` replaced by UTC epoch seconds.
  */
+export function normalizeMilestoneExpiration(
+  input: Date | number | string,
+  referenceDate?: Date,
+): number;
 export function normalizeMilestoneExpiration<
   T extends { deadline?: Date | number | string; expiration?: Date | number | string },
->(input: Date | number | string | T[], referenceDate?: Date): any {
+>(input: T[], referenceDate?: Date): Array<T & { deadline: number }>;
+export function normalizeMilestoneExpiration<
+  T extends { deadline?: Date | number | string; expiration?: Date | number | string },
+>(
+  input: Date | number | string | T[],
+  referenceDate?: Date,
+): number | Array<T & { deadline: number }> {
   if (Array.isArray(input)) {
     let lastDeadline = -1;
     return input.map((milestone, idx) => {
