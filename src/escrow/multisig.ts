@@ -676,7 +676,6 @@ export class MultiSigEscrowClient {
     return verifiedSigners.size;
   }
 
-
   /**
    * Merges `DecoratedSignature` entries from verified signer entries into the base envelope.
    * Only signatures from cryptographically verified entries are merged.
