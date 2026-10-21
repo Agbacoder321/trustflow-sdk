@@ -1041,8 +1041,8 @@ import {
 ### Configuration (`PoolConfig`)
 
 - `maxSockets` — Maximum number of sockets allowed per origin (default: 50).
-- `maxFreeSockets` — Maximum number of idle sockets kept open per origin (default: 10).
-- `socketTimeoutMs` — Inactivity timeout before a socket is destroyed (default: 30000ms).
+- `maxFreeSockets` — Maximum number of idle sockets kept open per origin (default: 256).
+- `socketTimeoutMs` — Inactivity timeout before a socket is destroyed (default: 60000ms).
 - `keepAliveInitialDelayMs` — Initial delay before keep-alive probes are sent (default: 1000ms).
 
 ## Testing Kit (`@trustflow/sdk/testing`)
@@ -1059,7 +1059,7 @@ import {
   buildMockContractEvent,
   isValidScVal,
   toBeValidScVal,
-} from @trustflow/sdk/testing;
+} from '@trustflow/sdk/testing';
 ```
 
 See [docs/TESTING.md](./TESTING.md) for full usage examples.
