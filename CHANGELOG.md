@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### Session revocation on wallet disconnect (#347)
+
+- Issue #347: `useWallet().disconnect()` now revokes all persisted auth state. It calls the new `clearAllSessions()`, which removes the unscoped token/address/expiry trio through the active storage adapter and sweeps every `trustflow_`-prefixed key out of `localStorage` and `sessionStorage` — covering account-scoped sessions (`trustflow_token:<scope>`) and legacy keys — so a stored JWT, refresh token, or challenge nonce can no longer outlive the connection it belonged to. The purge runs even when the wallet-level disconnect rejects, so a failing extension can no longer leave credentials behind.
+
+### Bias-free nonce generation (#352)
+
+- Issue #352: `randomNonce` now maps random bytes onto its 62-character alphabet with rejection sampling instead of a raw modulo. Byte values 248-255 — which the old `bytes[i] % 62` folded onto the first eight positions, making them 25% more likely than they should be — are rejected and redrawn, so every character is exactly equally likely and each accepted byte carries a full log2(62) bits of entropy. The mapping lives in the new exported helper `bytesToAlphabet`, and `randomNonce` fails closed with a `TrustFlowError` instead of looping if the random source keeps yielding rejected samples.
+
+### Shared JWT expiry decoding (#431)
+
+- Issue #431: JWT expiry parsing is no longer duplicated. The single base64url-safe implementation now lives in `src/utils/jwt.ts` as `decodeJwtExpMs` (re-exported from `src/auth/tokenRefresh` for compatibility) and is used by both `authenticateWithWallet` and `TokenRefreshManager`. Unlike the previous `Buffer`-only parser, it also works in browsers and workers with no global `Buffer` (via `atob`), normalizes base64url (`-`/`_`) segments, and returns `null` instead of throwing on malformed input.
+
+### Duplicate error-code guard (#432)
+
+- Issue #432: Removed the duplicated `'INVALID_CONTRACT_CALL'` member from the `TrustFlowErrorCode` union and added `@typescript-eslint/no-duplicate-type-constituents` (with the `parserOptions.project` it requires) to the default ESLint config so a type declaration can never list the same member twice. Per typescript-eslint guidance, the core `no-undef` and `no-redeclare` rules are disabled for TypeScript files in favor of the TypeScript-aware `@typescript-eslint/no-redeclare` and `tsc` itself. A unit test also scans the union source for duplicates.
+
+### Pre-existing breakage repairs (accompanies #347, #352, #431, #432)
+
+- `IPFSStorage.encrypt`/`decrypt` now throw `TrustFlowError`s with proper `ENCRYPTION_ERROR`/`DECRYPTION_ERROR` codes (free-text messages were previously passed as error codes) and resolve Node's `crypto` module lazily, so `src/storage/ipfs.ts` no longer forces browser bundlers into Node polyfills. AES-GCM IVs come from the SDK's own CSPRNG helper.
+- The fee-bump retry path in `TransactionPipeline` no longer crashes (`operation.sourceAccount is not a function`) when rebuilding the inner transaction: it re-adds raw `xdr.Operation`s from the original envelope, since `TransactionBuilder.addOperation` has required `xdr.Operation` (not parsed operation objects) since stellar-base v13, and the misspelled `timebounds` property is gone.
+- `WebAuthnManager` internals: challenge creation uses the shared `randomBytes` helper instead of inline `require('crypto')` branching, the three `TrustFlowError.wrap` calls pass real error codes instead of free-text messages, and smart-account keypair derivation uses `Keypair.fromRawEd25519Seed` with the 32-byte HMAC digest (the previous `Keypair.fromSecret(Buffer)` call could never succeed).
+- `tests/escrow-cancel.test.ts` assertions were updated to the stellar-base v13+ `ScVal` API (`switch().name`, `.str()`), and `src/utils/timezone.ts` overload declarations now pass `@typescript-eslint/no-redeclare`.
+- Typecheck, lint, format, build, and the full test suite are green again (`tsc --noEmit`, `eslint src`, `tsup` DTS generation, and five previously failing suites: escrow-cancel, tx-pipeline, bundler-compat, dist-entry-identity, use-client-directive).
+- `npm run treeshake:check` works again: the fixture imported `../dist/index.mjs` relative to a directory under `node_modules/.cache/`, so it could never resolve, and the check had never run successfully since it was added. It now resolves the entry absolutely, fails if a single-helper import retains any `@stellar/stellar-sdk` bytes, enforces a 96 KB budget (current: 66 KB), and prints the larger real-browser figure caused by stellar-sdk's side-effectful UMD browser build so that upstream packaging limitation stays visible instead of masquerading as an SDK regression.
+- `npm run size` works again: `size-limit` and `@size-limit/preset-small-lib` were declared in `package.json` but missing from `package-lock.json`, which also made CI's `npm ci` fail, and the size configuration did not exclude runtime dependencies or Node built-ins, so the browser entry pulled in the stellar-sdk UMD and the `./node` entry could not resolve `http`/`https`. Dependencies and built-ins are now external in `.size-limit.json`; all seven entries pass with headroom (root 35 KB / 80 KB).
+- `npm run examples:check` passes on TypeScript 6: the deprecated `baseUrl` was dropped from `examples/tsconfig.json` (all `paths` were already relative to the config file).
+
 ### Typed milestone expiration return shape (#440)
 
 - Issue #440: `normalizeMilestoneExpiration` now has overloads instead of returning `any`. A single expiration returns `number`, and an array of milestones returns `Array<T & { deadline: number }>`.
