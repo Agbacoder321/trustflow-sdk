@@ -296,7 +296,8 @@ export class EscrowMonitor {
   addTopicFilter(filter: TopicFilter): this {
     // Prevent duplicate filters
     const exists = this.topicFilters.some(
-      (f) => f.type === filter.type && f.topicIndex === filter.topicIndex && f.value === filter.value,
+      (f) =>
+        f.type === filter.type && f.topicIndex === filter.topicIndex && f.value === filter.value,
     );
     if (!exists) {
       this.topicFilters.push(filter);
@@ -312,7 +313,8 @@ export class EscrowMonitor {
    */
   removeTopicFilter(filter: TopicFilter): this {
     this.topicFilters = this.topicFilters.filter(
-      (f) => !(f.type === filter.type && f.topicIndex === filter.topicIndex && f.value === filter.value),
+      (f) =>
+        !(f.type === filter.type && f.topicIndex === filter.topicIndex && f.value === filter.value),
     );
     return this;
   }
