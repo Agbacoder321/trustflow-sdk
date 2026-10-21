@@ -5,7 +5,7 @@ import { TrustFlowError } from '../errors';
 import type { AccountOptions } from '../accounts/types';
 import { withTransientRetry } from '../utils/node-retry';
 import { padResourceFee } from '../utils/resource-fee';
-import { logger } from '../utils/logger';
+import { describeError, logger } from '../utils/logger';
 import type { ReadContractStateOptions } from './read';
 import { simulateTransaction } from './simulation';
 
@@ -136,13 +136,13 @@ export async function invokeContract(
     // Same ordering as TransactionPipeline.prepare(): the padded fee must land
     // in the Soroban data itself, not only in the `minResourceFee` argument.
     simulation.transactionData?.setResourceFee(paddedFee);
+    // Assemble from the full parsed response so the simulated authorization
+    // entries (`result.auth`) are carried into the built operation (#433).
     const prepared = rpc
       .assembleTransaction(tx, {
-        transactionData: simulation.transactionData ?? '',
-        events: [],
+        ...simulation.response,
         minResourceFee: paddedFee,
-        result: { retval: simulation.returnValue as any },
-      } as any)
+      } as rpc.Api.SimulateTransactionSuccessResponse)
       .build();
     const xdr = prepared.toXDR();
     logger.debug('Signing and submitting transaction', { method, xdrLength: xdr.length });
@@ -157,7 +157,7 @@ export async function invokeContract(
       gasUsed,
     };
   } catch (e) {
-    logger.error('Contract invocation failed', { method, caller, error: e });
+    logger.error('Contract invocation failed', { method, caller, error: describeError(e) });
     const message = e instanceof Error ? e.message : String(e);
     const code = e instanceof TrustFlowError ? e.code : undefined;
     return { success: false, error: message, code };
