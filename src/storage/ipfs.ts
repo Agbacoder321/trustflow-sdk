@@ -86,6 +86,8 @@ export interface IPFSUploadOptions {
   filename?: string;
   /** MIME type of the file. Defaults to `application/octet-stream`. */
   contentType?: string;
+  /** Abort signal for cancelling the upload request. */
+  abortSignal?: AbortSignal;
 }
 
 export interface IPFSUploadResult {
@@ -98,6 +100,8 @@ export interface IPFSUploadResult {
 export interface IPFSResolveOptions {
   /** Request timeout in milliseconds for gateway resolution. */
   timeoutMs?: number;
+  /** Abort signal for cancelling the resolve request. */
+  abortSignal?: AbortSignal;
 }
 
 export interface EncryptedData {
@@ -172,6 +176,7 @@ export class IPFSStorage {
           'Content-Type': contentType,
           ...(filename ? { 'X-Name': filename } : {}),
         },
+        signal: options.abortSignal,
       });
       const cid = response.data?.cid;
       if (!cid || typeof cid !== 'string' || cid.trim() === '') {
@@ -204,6 +209,7 @@ export class IPFSStorage {
 
     const errors: string[] = [];
     const timeout = options.timeoutMs ?? this.timeoutMs;
+    const abortSignal = options.abortSignal;
 
     for (const gateway of this.gateways) {
       const cleanGateway = gateway.replace(/\/+$/, '');
@@ -213,6 +219,7 @@ export class IPFSStorage {
         logger.debug('Resolving IPFS CID from gateway', { gateway: cleanGateway, cid });
         const response = await axios.get(url, {
           timeout,
+          signal: abortSignal,
           responseType: 'text',
           transformResponse: [(d) => d],
           validateStatus: (status) => status >= 200 && status < 300,
@@ -259,6 +266,11 @@ export class IPFSStorage {
           continue;
         }
       } catch (reqError: any) {
+        // Re-throw abort errors immediately so callers can distinguish cancellation from failure
+        if (abortSignal?.aborted) {
+          const abortError = reqError instanceof Error ? reqError : new Error(String(reqError));
+          throw abortError;
+        }
         const err = `Gateway ${cleanGateway} request failed: ${reqError?.message || String(reqError)}`;
         logger.warn(err, { cid });
         errors.push(err);
