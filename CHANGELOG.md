@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Logger redaction of non-secret `...Key` fields (#581)
+
+- Issue #581: `SDKLogger` no longer redacts every context field whose name contains `key`. Only secret-shaped names (`apiKey`, `api_key`, `secretKey`, `privateKey`, `signingKey`, ...) are redacted alongside `authorization`, `token`, `secret` and `password`, so public values such as `publicKey`, `pubkey` and `keypair` are logged. Secrets nested inside such objects are still redacted.
+
+### Spec-based return decoding in contract bindings (#579)
+
+- Issue #579: `SorobanContractClient.invoke()` (and every `binding.methods.*` call) no longer throws `scVal.switch is not a function` for methods with a non-void return type, and `read()` / `read_*` now decode the return value against the contract spec (unions as `{ tag, values }`, `Result` as `{ ok }` / `{ error }`) instead of silently returning the untyped `scValToNative` shape. `SimulationOutcome` and `ContractCallResult` gain an optional `rawReturnValue` carrying the undecoded `ScVal`.
+
+### Escrow lifecycle guide retry options (#578)
+
+- Issue #578: Fixed the `TrustFlowEscrowClient` snippet in `docs/guides/escrow-lifecycle.md` to use the real `ApiRetryConfig` fields (`retries`, `retryDelayMs`, `maxRetryDelayMs`).
+
+### Architecture doc lists the `/testing` entry point (#576)
+
+- Issue #576: `docs/ARCHITECTURE.md` now lists `src/testing/` in the module map and `@trustflow/sdk/testing` in the entry-points table (seven entry points), and clarifies that `/testing` is a test-only entry outside the browser-safe set.
+
 ### Single CID validator (#562)
 
 - Issue #562: `isValidCID`, `isValidCIDv0`, `isValidCIDv1`, `assertValidCID` and `getCIDVersion` in `src/utils/validation.ts` now delegate to the decode-based validator in `src/storage/cid.ts`, so `isValidCid`/`isValidCID` always agree. Previously the regex versions rejected valid CIDv1 strings with multicodecs other than dag-pb, dag-cbor, raw and dag-json.
