@@ -17,25 +17,32 @@ function shouldLog(level: LogLevel, minLevel: LogLevel): boolean {
   return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[minLevel];
 }
 
+/** Field-name substrings that always mark a context value as sensitive. */
+const SENSITIVE_SUBSTRINGS = ['authorization', 'token', 'secret', 'password'];
+
+/**
+ * Secret-shaped `...Key` field names (`apiKey`, `api_key`, `privateKey`,
+ * `signingKey`, ...), matched against the lower-cased name with separators
+ * removed. Deliberately narrow: a bare `key` substring would also redact public
+ * values such as `publicKey`, `pubkey` or `keypair` (#581).
+ */
+const SECRET_KEY_PATTERN = /(?:api|private|priv|secret|signing|access|encryption)key/;
+
+/** Whether a context field name denotes a secret that must not be logged. */
+function isSensitiveField(name: string): boolean {
+  const lowerName = name.toLowerCase();
+  if (SENSITIVE_SUBSTRINGS.some((s) => lowerName.includes(s))) return true;
+  return SECRET_KEY_PATTERN.test(lowerName.replace(/[^a-z0-9]/g, ''));
+}
+
 /** Redact sensitive fields from log context */
 function redactContext(context: unknown): unknown {
   if (!context || typeof context !== 'object') return context;
 
-  const sensitiveKeys = [
-    'authorization',
-    'apikey',
-    'api_key',
-    'apiKey',
-    'token',
-    'secret',
-    'password',
-    'key',
-  ];
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(context as Record<string, unknown>)) {
-    const lowerKey = key.toLowerCase();
-    if (sensitiveKeys.some((k) => lowerKey.includes(k))) {
+    if (isSensitiveField(key)) {
       result[key] = '[REDACTED]';
     } else if (Array.isArray(value)) {
       // Preserve arrays by mapping each element through redactContext
