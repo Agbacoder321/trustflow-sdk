@@ -3,7 +3,7 @@ import type { TrustFlowClient } from '../client';
 import type { AccountOptions } from '../accounts/types';
 import { TrustFlowError } from '../errors';
 import { logger } from '../utils/logger';
-import { simulateTransaction } from './simulation';
+import { simulateTransaction, type SimulationOutcome } from './simulation';
 
 export interface ReadContractStateOptions extends AccountOptions {
   /**
@@ -63,6 +63,30 @@ export async function readContractState(
   args: unknown[] = [],
   options: ReadContractStateOptions = {},
 ): Promise<unknown> {
+  const outcome = await simulateContractRead(client, method, args, options);
+  return outcome.returnValue;
+}
+
+/**
+ * Runs the read simulation behind {@link readContractState} and returns the
+ * whole successful outcome, including the undecoded `rawReturnValue`, so
+ * `SorobanContractClient.read` can decode it against the contract spec rather
+ * than with the untyped `scValToNative` (#579).
+ *
+ * @internal Not exported from the package entry points.
+ * @param client - Configured client, for the contract ID, network and retry budget
+ * @param method - Contract method name
+ * @param args - Positional arguments, already encoded to `ScVal`s
+ * @param options - Per-call account, retry and timeout overrides
+ * @returns The successful simulation outcome
+ * @throws {TrustFlowError} Same as {@link readContractState}
+ */
+export async function simulateContractRead(
+  client: TrustFlowClient,
+  method: string,
+  args: unknown[] = [],
+  options: ReadContractStateOptions = {},
+): Promise<SimulationOutcome> {
   client.resolveAccount(options.account);
   const server = client.getSorobanServer();
   const contract = new Contract(client.contractId);
@@ -95,5 +119,5 @@ export async function readContractState(
   }
 
   logger.debug('Contract read succeeded', { method });
-  return result.returnValue;
+  return result;
 }

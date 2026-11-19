@@ -157,7 +157,7 @@ or for a contract spec that declares the same struct field twice.
 
 | | Account used | Submits? | Returns |
 | --- | --- | --- | --- |
-| `read_*` / `binding.read(name, args?)` | a placeholder account | never | the decoded native value; throws `TrustFlowError` `SIMULATION_ERROR` if the simulation fails |
+| `read_*` / `binding.read(name, args?)` | a placeholder account | never | the return value decoded against the contract spec (see `result` below); throws `TrustFlowError` `SIMULATION_ERROR` if the simulation fails |
 | `simulate_*` / `binding.simulate(name, args?)` | none | never | `SimulationResult`: `{ success, cost, returnValue?, error? }` |
 | `invoke` / `methods.foo_bar` | the `caller` account, loaded from the network | only when `signAndSubmit` is given | `ContractCallResult & { result }` |
 
@@ -175,7 +175,11 @@ or for a contract spec that declares the same struct field twice.
   `{ success: false, error }`. When that error is a `TrustFlowError`, `code` carries its typed code, such
   as `TIMEOUT` or `ACCOUNT_NOT_FOUND`, so you can branch on it without parsing `error`. Argument encoding
   errors are the exception: they are thrown by `invoke` before the call is made.
-- `result` is `decodeReturnValue(...)` of `returnValue`, and is `undefined` when there is no return value.
+- `result` is `decodeReturnValue(...)` of `rawReturnValue`, the undecoded `ScVal` the simulation
+  returned, so enums, unions (`{ tag, values }`), `Result` outputs (`{ ok }` / `{ error }`) and structs
+  follow the spec. `returnValue` stays the untyped `scValToNative` decode. `result` is `undefined` when
+  the method returns void. If the value does not match the spec, `result` falls back to `returnValue`
+  and a warning is logged, so a submitted call never loses its `txHash`.
 
 `simulate_*` encodes the arguments, joins their base64 XDR strings and passes them to
 `simulateContractCall`; the returned `cost` values are currently placeholders (`'0'`). Verify this
