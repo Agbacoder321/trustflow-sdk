@@ -85,6 +85,9 @@ src/
 │   ├── logger.ts          # SDKLogger (side effect: console output)
 │   └── index.ts           # Exports
 │
+├── testing/               # Test-only entry: @trustflow/sdk/testing (see docs/TESTING.md)
+│   └── index.ts           # Mock Horizon/Soroban servers, MockWalletAdapter, fixture builders, ScVal matchers
+│
 ├── node/                  # Node-only entry: @trustflow/sdk/node
 │   ├── agents.ts          # The ONLY node:http / node:https imports in the package
 │   └── index.ts           # Exports
@@ -219,7 +222,7 @@ User → pipeline.run(sourceAccount, ops, signers)
 
 ## Entry Points & Distribution
 
-The SDK publishes six entry points via `tsup`, built from distinct source files:
+The SDK publishes seven entry points via `tsup`, built from distinct source files:
 
 | Export | Source | Contents | Use Case |
 |--------|--------|----------|----------|
@@ -228,13 +231,17 @@ The SDK publishes six entry points via `tsup`, built from distinct source files:
 | `@trustflow/sdk/wallet` | `src/wallet/index.ts` | Wallet adapters & connection | Frontend wallet logic |
 | `@trustflow/sdk/utils` | `src/utils/index.ts` | Validation, formatting, retry, feature detection | Shared utilities |
 | `@trustflow/sdk/react` | `src/hooks/index.ts` | React hooks (requires react peer dep) | React applications |
+| `@trustflow/sdk/testing` | `src/testing/index.ts` | Mock Horizon/Soroban servers, `MockWalletAdapter`, fixture builders, ScVal matchers | Consumer test suites (see `docs/TESTING.md`) |
 | `@trustflow/sdk/node` | `src/node/index.ts` | **Node only** — `http`/`https` keep-alive agent factories | Long-running Node servers |
 
 Each entry point shares common classes (TrustFlowError, logger) via `tsup`'s chunk splitting to avoid duplication.
 
-Only the first five are browser-safe. `src/node/` is the sole module graph that references
+Only the first five are browser-safe. `@trustflow/sdk/testing` imports no Node built-ins either,
+but it is a test-only entry for Jest/Vitest suites and Playwright/Cypress scripts rather than
+application bundles, so it is not counted among the browser-safe entries and is not part of the
+bundler checks below. `src/node/` is the sole module graph that references
 `node:http` / `node:https`, and those specifiers are declared `external` in `tsup.config.ts` so
-the neutral build never tries to bundle them. Everything reachable from the other five entries is
+the neutral build never tries to bundle them. Everything reachable from the first five entries is
 asserted to be free of Node built-ins by `tests/bundler-compat.test.ts`, and proven end-to-end on
 Webpack 5, Rollup and esbuild by `npm run test:bundlers`. See
 `docs/BROWSER_COMPATIBILITY.md`.
