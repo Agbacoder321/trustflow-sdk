@@ -1,4 +1,5 @@
 import { hash } from '@stellar/stellar-sdk';
+import { TrustFlowClient } from '../client';
 import type { ContractConfig } from '../types/contract';
 import type {
   CastVoteParams,
@@ -13,8 +14,12 @@ import type {
 export type { JurorClientOptions } from '../types/juror';
 import type { SDKResult } from '../types/index';
 
-import { buildVoteArgs } from '../contract/build';
+import { buildVoteArgs, buildRevealArgs } from '../contract/build';
+import { invokeContract } from '../contract/invoke';
 import { VoteSchema } from '../schemas';
+import { TrustFlowError } from '../errors';
+import { randomBytes } from '../utils/crypto';
+import { isValidEscrowId, isValidStellarAddress } from '../utils/validation';
 
 const VALID_CHOICES: VoteChoice[] = ['approve', 'reject', 'abstain'];
 
@@ -157,11 +162,30 @@ export function revealVote(voteForDepositor: boolean, salt: Uint8Array): RevealV
  */
 export class JurorClient {
   private readonly storedSalts = new Map<string, { salt: Uint8Array; expiresAt?: number }>();
+  private _trustFlowClient?: TrustFlowClient;
 
   constructor(
     private readonly config: ContractConfig,
     private readonly options: JurorClientOptions = {},
   ) {}
+
+  /**
+   * Lazily builds (and caches) the {@link TrustFlowClient} used to submit
+   * contract calls, sharing the same `contractId`/network/RPC settings this
+   * `JurorClient` was constructed with.
+   */
+  private getTrustFlowClient(): TrustFlowClient {
+    this._trustFlowClient ??= new TrustFlowClient({
+      contractId: this.config.contractId,
+      network: this.config.network,
+      rpcUrl: this.config.rpcUrl,
+      networkPassphrase: this.config.networkPassphrase,
+      apiBaseUrl: this.config.apiBaseUrl,
+      apiKey: this.config.apiKey,
+      timeoutMs: this.config.timeoutMs,
+    });
+    return this._trustFlowClient;
+  }
 
   /**
    * Constructs a vote commitment matching the contract hash_vote preimage layout:
@@ -297,14 +321,24 @@ export class JurorClient {
     } catch (e) {
       return { ok: false, error: `Failed to encode vote arguments: ${String(e)}` };
     }
-    // Encoded ScVal args are ready for the shared tx-pipeline once wired to a
-    // live signer; this returns the prepared call metadata in the meantime.
-    void args;
+
+    const result = await invokeContract(
+      this.getTrustFlowClient(),
+      'cast_vote',
+      args,
+      params.jurorAddress,
+    );
+    if (!result.success) {
+      return { ok: false, error: result.error ?? 'Vote submission failed' };
+    }
+    if (typeof result.txHash !== 'string' || !result.txHash) {
+      return { ok: false, error: 'Vote submitted without a valid transaction hash' };
+    }
 
     return {
       ok: true,
       data: {
-        txHash: `vote-${this.config.contractId}-${params.disputeId}-${Date.now()}`,
+        txHash: result.txHash,
         disputeId: params.disputeId,
         jurorAddress: params.jurorAddress,
         encrypted: params.vote.encrypted,
@@ -390,12 +424,24 @@ export class JurorClient {
     } catch (e) {
       return { ok: false, error: `Failed to encode reveal arguments: ${String(e)}` };
     }
-    void args;
+
+    const result = await invokeContract(
+      this.getTrustFlowClient(),
+      'reveal_vote',
+      args,
+      p.jurorAddress,
+    );
+    if (!result.success) {
+      return { ok: false, error: result.error ?? 'Vote reveal submission failed' };
+    }
+    if (typeof result.txHash !== 'string' || !result.txHash) {
+      return { ok: false, error: 'Vote reveal submitted without a valid transaction hash' };
+    }
 
     return {
       ok: true,
       data: {
-        txHash: `reveal-${this.config.contractId}-${p.disputeId}-${Date.now()}`,
+        txHash: result.txHash,
         disputeId: p.disputeId,
         jurorAddress: p.jurorAddress,
         voteForDepositor: p.voteForDepositor,

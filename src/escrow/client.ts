@@ -1,10 +1,19 @@
+import { nativeToScVal } from '@stellar/stellar-sdk';
+import { TrustFlowClient } from '../client';
 import { ContractConfig } from '../types/contract';
 import { EscrowParams, EscrowState, SDKResult, GetGigsParams, GigsPage } from '../types/index';
 import { xlmToStroops, STELLAR_ADDRESS_RE, CONTRACT_ID_RE, isValidEscrowId } from '../utils/validation';
 import { createApiHttpClient, toApiErrorMessage } from '../utils/http';
 import type { ApiRetryConfig } from '../utils/http';
 import type { HttpInterceptors } from '../utils/interceptors';
-import { buildCreateEscrowArgs, buildClaimArgs, buildFundArgs } from '../contract/build';
+import {
+  buildCreateEscrowArgs,
+  buildClaimArgs,
+  buildFundArgs,
+  buildReleaseArgs,
+} from '../contract/build';
+import { invokeContract } from '../contract/invoke';
+import { readContractState } from '../contract/read';
 import { CreateEscrowSchema, ReleaseEscrowSchema, ClaimEscrowSchema, FundEscrowSchema } from '../schemas';
 
 /** Per-call transport overrides for {@link TrustFlowEscrowClient.getGigs}. */
@@ -105,6 +114,7 @@ export class TrustFlowEscrowClient {
   private readonly timeoutMs?: number;
   private readonly retry?: ApiRetryConfig;
   private readonly interceptors?: HttpInterceptors;
+  private _trustFlowClient?: TrustFlowClient;
 
   constructor(config: ContractConfig, options: TrustFlowEscrowClientOptions = {}) {
     this.contractConfig = config;
@@ -113,6 +123,45 @@ export class TrustFlowEscrowClient {
     this.timeoutMs = options.timeoutMs ?? config.timeoutMs;
     this.retry = options.retry;
     this.interceptors = options.interceptors;
+  }
+
+  /**
+   * Lazily builds (and caches) the {@link TrustFlowClient} used to submit and
+   * read contract calls, sharing the same `contractId`/network/RPC settings
+   * this client was constructed with.
+   */
+  private getTrustFlowClient(): TrustFlowClient {
+    this._trustFlowClient ??= new TrustFlowClient({
+      contractId: this.contractConfig.contractId,
+      network: this.contractConfig.network,
+      rpcUrl: this.contractConfig.rpcUrl,
+      networkPassphrase: this.contractConfig.networkPassphrase,
+      apiBaseUrl: this.contractConfig.apiBaseUrl,
+      apiKey: this.contractConfig.apiKey,
+      timeoutMs: this.timeoutMs,
+    });
+    return this._trustFlowClient;
+  }
+
+  /**
+   * Submits encoded call arguments via {@link invokeContract} and reduces the
+   * result to either a real transaction hash or an error — never a fabricated
+   * success.
+   */
+  private async submitContractCall(
+    method: string,
+    args: unknown[],
+    caller: string,
+    label: string,
+  ): Promise<{ ok: true; txHash: string } | { ok: false; error: string }> {
+    const result = await invokeContract(this.getTrustFlowClient(), method, args, caller);
+    if (!result.success) {
+      return { ok: false, error: result.error ?? `${label} failed` };
+    }
+    if (typeof result.txHash !== 'string' || !result.txHash) {
+      return { ok: false, error: `${label} completed without a valid transaction hash` };
+    }
+    return { ok: true, txHash: result.txHash };
   }
 
   /**
@@ -166,12 +215,19 @@ export class TrustFlowEscrowClient {
     } catch (e) {
       return { ok: false, error: `Failed to encode escrow arguments: ${String(e)}` };
     }
-    // Encoded ScVal args are ready for the shared tx-pipeline once wired to a
-    // live signer; this returns the prepared call metadata in the meantime.
-    void args;
+
+    const submission = await this.submitContractCall(
+      'create_escrow',
+      args,
+      params.depositor,
+      'Escrow creation',
+    );
+    if (!submission.ok) {
+      return { ok: false, error: submission.error };
+    }
 
     const escrowId = `esc-${Date.now()}`;
-    return { ok: true, data: { escrowId, txHash: `create-${escrowId}` } };
+    return { ok: true, data: { escrowId, txHash: submission.txHash } };
   }
 
   /**
@@ -210,11 +266,18 @@ export class TrustFlowEscrowClient {
     } catch (e) {
       return { ok: false, error: `Failed to encode claim arguments: ${String(e)}` };
     }
-    // Encoded ScVal args are ready for the shared tx-pipeline once wired to a
-    // live signer; this returns the prepared call metadata in the meantime.
-    void args;
 
-    return { ok: true, data: { txHash: `claim-${escrowId}-${Date.now()}` } };
+    const submission = await this.submitContractCall(
+      'claim_escrow',
+      args,
+      claimantAddress,
+      'Escrow claim',
+    );
+    if (!submission.ok) {
+      return { ok: false, error: submission.error };
+    }
+
+    return { ok: true, data: { txHash: submission.txHash } };
   }
 
   /**
@@ -262,11 +325,18 @@ export class TrustFlowEscrowClient {
     } catch (e) {
       return { ok: false, error: `Failed to encode fund arguments: ${String(e)}` };
     }
-    // Encoded ScVal args are ready for the shared tx-pipeline once wired to a
-    // live signer; this returns the prepared call metadata in the meantime.
-    void args;
 
-    return { ok: true, data: { txHash: `fund-${escrowId}-${Date.now()}` } };
+    const submission = await this.submitContractCall(
+      'fund_escrow',
+      args,
+      funderAddress,
+      'Escrow funding',
+    );
+    if (!submission.ok) {
+      return { ok: false, error: submission.error };
+    }
+
+    return { ok: true, data: { txHash: submission.txHash } };
   }
 
   /**
@@ -288,7 +358,7 @@ export class TrustFlowEscrowClient {
   ): Promise<SDKResult<{ txHash: string }>> {
     const validation = ReleaseEscrowSchema.safeParse({
       escrowId,
-      caller: releaserAddress,
+      recipient: releaserAddress,
       network: this.contractConfig.network ?? 'TESTNET',
     });
     if (!validation.success) {
@@ -297,7 +367,25 @@ export class TrustFlowEscrowClient {
         .join('; ');
       return { ok: false, error: `Validation failed: ${fieldErrors}` };
     }
-    return { ok: true, data: { txHash: `release-${escrowId}-${Date.now()}` } };
+
+    let args: unknown[];
+    try {
+      args = buildReleaseArgs(escrowId, releaserAddress);
+    } catch (e) {
+      return { ok: false, error: `Failed to encode release arguments: ${String(e)}` };
+    }
+
+    const submission = await this.submitContractCall(
+      'release_escrow',
+      args,
+      releaserAddress,
+      'Escrow release',
+    );
+    if (!submission.ok) {
+      return { ok: false, error: submission.error };
+    }
+
+    return { ok: true, data: { txHash: submission.txHash } };
   }
 
   /**
@@ -310,7 +398,14 @@ export class TrustFlowEscrowClient {
     if (!isValidEscrowId(_escrowId)) {
       return { ok: false, error: 'escrowId is required' };
     }
-    return { ok: true, data: null }; // Fetch from contract storage
+    try {
+      const result = await readContractState(this.getTrustFlowClient(), 'get_escrow', [
+        nativeToScVal(_escrowId, { type: 'string' }),
+      ]);
+      return { ok: true, data: (result ?? null) as EscrowState | null };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   /**

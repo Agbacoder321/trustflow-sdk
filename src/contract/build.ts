@@ -1,12 +1,23 @@
 import { Address, nativeToScVal } from '@stellar/stellar-sdk';
 import type { CreateEscrowParams } from '../types';
 import type { VotePayload } from '../types/juror';
-import { assertStellarAddress, isValidEscrowId } from '../utils/validation';
+import { assertStellarAddress, isValidAddress, isValidEscrowId } from '../utils/validation';
 import { TrustFlowError } from '../errors';
 
 function assertEscrowId(escrowId: string): void {
   if (!isValidEscrowId(escrowId)) {
     throw TrustFlowError.validation('escrowId', `not a usable escrow id: "${escrowId}"`);
+  }
+}
+
+/**
+ * Validates a Soroban token contract address (e.g. the USDC contract) — a
+ * `C...` contract id, not a `G...` account address — so a malformed
+ * `tokenAddress` fails here instead of inside `new Address()`.
+ */
+function assertTokenAddress(value: string, field: string): void {
+  if (!isValidAddress(value)) {
+    throw TrustFlowError.validation(field, `Invalid Stellar address for "${field}": ${value}`);
   }
 }
 
@@ -82,6 +93,8 @@ export function buildReleaseArgs(escrowId: string, caller: string): unknown[] {
  * contract has already cleared for withdrawal.
  */
 export function buildClaimArgs(escrowId: string, claimant: string): unknown[] {
+  assertEscrowId(escrowId);
+  assertStellarAddress(claimant, 'claimant');
   return [nativeToScVal(escrowId, { type: 'string' }), new Address(claimant).toScVal()];
 }
 
@@ -100,6 +113,11 @@ export function buildFundArgs(
   amountStroops: bigint,
   tokenAddress?: string,
 ): unknown[] {
+  assertEscrowId(escrowId);
+  assertStellarAddress(funder, 'funder');
+  if (tokenAddress) {
+    assertTokenAddress(tokenAddress, 'tokenAddress');
+  }
   const args: unknown[] = [
     nativeToScVal(escrowId, { type: 'string' }),
     new Address(funder).toScVal(),

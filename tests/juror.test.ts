@@ -1,9 +1,15 @@
 import { Keypair } from '@stellar/stellar-sdk';
 import { JurorClient, createVoteCommitment, revealVote } from '../src/juror/client';
+import { buildVoteArgs, buildRevealArgs } from '../src/contract/build';
+import { invokeContract } from '../src/contract/invoke';
 
 import type { ContractConfig } from '../src/types/contract';
 
+jest.mock('../src/contract/invoke', () => ({ invokeContract: jest.fn() }));
+
+const mockInvoke = invokeContract as jest.Mock;
 const JUROR_ADDRESS = Keypair.random().publicKey();
+const TX_HASH = 'a'.repeat(64);
 
 const CONFIG: ContractConfig = {
   contractId: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4',
@@ -11,6 +17,11 @@ const CONFIG: ContractConfig = {
   rpcUrl: 'https://soroban-testnet.stellar.org',
   networkPassphrase: 'Test SDF Network ; September 2015',
 };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockInvoke.mockResolvedValue({ success: true, txHash: TX_HASH });
+});
 
 describe('JurorClient.vote', () => {
   it('accepts a plaintext vote', async () => {
@@ -26,7 +37,36 @@ describe('JurorClient.vote', () => {
       expect(result.data.disputeId).toBe('dsp-1');
       expect(result.data.jurorAddress).toBe(JUROR_ADDRESS);
       expect(result.data.encrypted).toBe(false);
-      expect(result.data.txHash).toMatch(/^vote-/);
+      expect(result.data.txHash).toBe(TX_HASH);
+    }
+  });
+
+  it('forwards cast_vote, the encoded args and the juror address to invokeContract', async () => {
+    const jurors = new JurorClient(CONFIG);
+    const vote = { encrypted: false as const, choice: 'approve' as const };
+    await jurors.vote({ disputeId: 'dsp-1', jurorAddress: JUROR_ADDRESS, vote });
+
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    const [client, method, args, caller] = mockInvoke.mock.calls[0];
+    expect(client).toBeDefined();
+    expect(method).toBe('cast_vote');
+    expect(args).toEqual(buildVoteArgs('dsp-1', JUROR_ADDRESS, vote));
+    expect(caller).toBe(JUROR_ADDRESS);
+  });
+
+  it('surfaces a rejected on-chain vote as { ok: false }', async () => {
+    mockInvoke.mockResolvedValueOnce({ success: false, error: 'unauthorized juror' });
+    const jurors = new JurorClient(CONFIG);
+
+    const result = await jurors.vote({
+      disputeId: 'dsp-1',
+      jurorAddress: JUROR_ADDRESS,
+      vote: { encrypted: false, choice: 'approve' },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/unauthorized juror/);
     }
   });
 
@@ -313,7 +353,7 @@ describe('JurorClient.submitReveal (Issue #462)', () => {
       expect(result.data.disputeId).toBe('dsp-1');
       expect(result.data.jurorAddress).toBe(JUROR_ADDRESS);
       expect(result.data.voteForDepositor).toBe(true);
-      expect(result.data.txHash).toMatch(/^reveal-/);
+      expect(result.data.txHash).toBe(TX_HASH);
     }
   });
 
@@ -331,7 +371,43 @@ describe('JurorClient.submitReveal (Issue #462)', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.voteForDepositor).toBe(false);
-      expect(result.data.txHash).toMatch(/^reveal-/);
+      expect(result.data.txHash).toBe(TX_HASH);
+    }
+  });
+
+  it('forwards reveal_vote, the encoded args and the juror address to invokeContract', async () => {
+    const jurors = new JurorClient(CONFIG);
+    const salt = new Uint8Array(32);
+
+    await jurors.submitReveal({
+      disputeId: 'dsp-1',
+      jurorAddress: JUROR_ADDRESS,
+      voteForDepositor: true,
+      salt,
+    });
+
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    const [client, method, args, caller] = mockInvoke.mock.calls[0];
+    expect(client).toBeDefined();
+    expect(method).toBe('reveal_vote');
+    expect(args).toEqual(buildRevealArgs('dsp-1', JUROR_ADDRESS, true, salt));
+    expect(caller).toBe(JUROR_ADDRESS);
+  });
+
+  it('surfaces a rejected on-chain reveal as { ok: false }', async () => {
+    mockInvoke.mockResolvedValueOnce({ success: false, error: 'reveal does not match commitment' });
+    const jurors = new JurorClient(CONFIG);
+
+    const result = await jurors.submitReveal({
+      disputeId: 'dsp-1',
+      jurorAddress: JUROR_ADDRESS,
+      voteForDepositor: true,
+      salt: new Uint8Array(32),
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/reveal does not match commitment/);
     }
   });
 

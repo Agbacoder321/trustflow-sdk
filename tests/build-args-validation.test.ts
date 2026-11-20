@@ -2,6 +2,8 @@ import {
   buildCreateEscrowArgs,
   buildReleaseArgs,
   buildDisputeArgs,
+  buildClaimArgs,
+  buildFundArgs,
 } from '../src/contract/build';
 import { TrustFlowError } from '../src/errors';
 import type { CreateEscrowParams } from '../src/types';
@@ -67,6 +69,58 @@ describe('build.ts address / id validation (#111)', () => {
     ])('rejects a malformed caller in the %s shape with a validation error', (_shape, reason) => {
       try {
         buildDisputeArgs('esc-1', 'not-a-stellar-address', reason);
+        throw new Error('should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(TrustFlowError);
+        expect((error as TrustFlowError).code).toBe('VALIDATION_ERROR');
+      }
+    });
+  });
+
+  describe('buildClaimArgs', () => {
+    it('accepts a valid escrowId + claimant', () => {
+      expect(() => buildClaimArgs('esc-1', VALID_ADDR)).not.toThrow();
+    });
+    it('rejects an empty escrowId', () => {
+      expect(() => buildClaimArgs('', VALID_ADDR)).toThrow(TrustFlowError);
+      expect(() => buildClaimArgs('   ', VALID_ADDR)).toThrow(TrustFlowError);
+    });
+    it('rejects an invalid claimant with a TrustFlowError', () => {
+      try {
+        buildClaimArgs('esc-1', 'not-a-stellar-address');
+        throw new Error('should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(TrustFlowError);
+        expect((error as TrustFlowError).code).toBe('VALIDATION_ERROR');
+      }
+    });
+  });
+
+  describe('buildFundArgs', () => {
+    const USDC_CONTRACT = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
+
+    it('accepts a valid escrowId + funder, with or without a tokenAddress', () => {
+      expect(() => buildFundArgs('esc-1', VALID_ADDR, 1_000_000n)).not.toThrow();
+      expect(() => buildFundArgs('esc-1', VALID_ADDR, 1_000_000n, OTHER_ADDR)).not.toThrow();
+    });
+    it('accepts a token contract id ("C...") as tokenAddress, not only a "G..." account', () => {
+      expect(() => buildFundArgs('esc-1', VALID_ADDR, 1_000_000n, USDC_CONTRACT)).not.toThrow();
+    });
+    it('rejects an empty escrowId', () => {
+      expect(() => buildFundArgs('', VALID_ADDR, 1_000_000n)).toThrow(TrustFlowError);
+    });
+    it('rejects an invalid funder with a TrustFlowError', () => {
+      try {
+        buildFundArgs('esc-1', 'not-a-stellar-address', 1_000_000n);
+        throw new Error('should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(TrustFlowError);
+        expect((error as TrustFlowError).code).toBe('VALIDATION_ERROR');
+      }
+    });
+    it('rejects an invalid tokenAddress with a TrustFlowError', () => {
+      try {
+        buildFundArgs('esc-1', VALID_ADDR, 1_000_000n, 'not-a-stellar-address');
         throw new Error('should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(TrustFlowError);
