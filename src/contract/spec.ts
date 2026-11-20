@@ -13,6 +13,8 @@ export interface SpecFunction {
   name: string & { (): { toString(): string } };
   doc: string;
   inputs: SpecFunctionInput[];
+  /** Alias for inputs for consumers inspecting method signatures. */
+  parameters: SpecFunctionInput[];
   outputs: xdr.ScSpecTypeDef[];
 }
 
@@ -388,14 +390,16 @@ export class SorobanSpec {
           f.valueOf = () => str;
           return f as unknown as string & { (): { toString(): string } };
         };
+        const inputs = fn.inputs().map((i) => ({
+          name: i.name().toString(),
+          doc: i.doc().toString(),
+          type: i.type(),
+        }));
         const specFn: SpecFunction = {
           name: makeCallableName(fnName),
           doc: fn.doc().toString(),
-          inputs: fn.inputs().map((i) => ({
-            name: i.name().toString(),
-            doc: i.doc().toString(),
-            type: i.type(),
-          })),
+          inputs,
+          parameters: inputs,
           outputs: fn.outputs(),
         };
         this.functions.set(fnName, specFn);
@@ -469,6 +473,11 @@ export class SorobanSpec {
    */
   getFunction(name: string): SpecFunction | undefined {
     return this.functions.get(name);
+  }
+
+  /** Retrieves a method signature, including an empty parameters array for zero-argument methods. */
+  getMethodSpec(name: string): SpecFunction | undefined {
+    return this.getFunction(name);
   }
 
   /**
