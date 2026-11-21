@@ -64,7 +64,16 @@ export async function createEscrow(
     milestones: normalizedMilestones ?? params.milestones,
   });
 
-  await invokeContract(client, 'create_escrow', args, params.sender);
+  const result = await invokeContract(client, 'create_escrow', args, params.sender);
+  if (!result.success) {
+    // Keep the contract's own message and the original result as `cause`, so a
+    // caller can tell an insufficient balance from any other failure (#717).
+    throw new TrustFlowError(
+      `Escrow creation failed: ${result.error ?? 'unknown contract error'}`,
+      'CONTRACT_ERROR',
+      result,
+    );
+  }
 
   return {
     id: `escrow-${Date.now()}`,
