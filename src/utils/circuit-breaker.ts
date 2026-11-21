@@ -34,8 +34,8 @@ export class CircuitBreaker {
       failureThreshold: config?.failureThreshold ?? 5,
       resetTimeoutMs: config?.resetTimeoutMs ?? 30_000,
       successThreshold: config?.successThreshold ?? 2,
-      onStateChange: config?.onStateChange ?? (() => {}),
-      onOpen: config?.onOpen ?? (() => {}),
+      onStateChange: config?.onStateChange ?? (() => { }),
+      onOpen: config?.onOpen ?? (() => { }),
     };
   }
 
@@ -123,6 +123,7 @@ export class CircuitBreaker {
     this.failureCount++;
 
     if (this.state === 'HALF_OPEN') {
+      this.successCount = 0;
       this.setState('OPEN');
     } else if (this.state === 'CLOSED' && this.failureCount >= this.config.failureThreshold) {
       this.setState('OPEN');

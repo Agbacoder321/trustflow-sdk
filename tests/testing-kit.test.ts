@@ -75,4 +75,32 @@ describe("Testing Kit Subpath (#240)", () => {
 
     expect(valid).toBeValidScVal();
   });
+
+  it("allows error simulation on mock Horizon server for testing failure paths (#627)", async () => {
+    const mockHorizon = createMockHorizonServer({ balanceXLM: "1000" });
+    const client = new TrustFlowClient({
+      contractId,
+      horizonServer: mockHorizon as any,
+    });
+
+    // Test normal operation
+    let balance = await client.getBalance(address);
+    expect(balance).toBe("1000");
+
+    // Simulate an error on subsequent calls
+    mockHorizon.setError(new Error("Network failure"));
+
+    // Expect getBalance to propagate the error
+    try {
+      balance = await client.getBalance(address);
+      throw new Error("should have thrown");
+    } catch (err: any) {
+      expect(err.message).toContain("Network failure");
+    }
+
+    // Clear the error and verify normal operation resumes
+    mockHorizon.clearError();
+    balance = await client.getBalance(address);
+    expect(balance).toBe("1000");
+  });
 });

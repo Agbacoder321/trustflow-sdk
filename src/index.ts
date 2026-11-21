@@ -38,6 +38,7 @@ export * from './wallet/mock';
 export { TrustFlowClient } from './client';
 export type { GetBalanceOptions } from './client';
 export * from './errors';
+export { padResourceFee, DEFAULT_RESOURCE_FEE_MULTIPLIER } from './utils/resource-fee';
 
 // Zod runtime validation schemas (#45) — re-exported by name rather than
 // `export *` because `Network` and `ClientConfig` already exist as plain
