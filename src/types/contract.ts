@@ -31,6 +31,11 @@ export interface ContractCallResult {
   txHash?: string;
   errorCode?: number;
   gasUsed?: number;
+  /**
+   * Estimated total fee in stroops for a simulation-only call: the base fee
+   * plus the simulated resource fee. Set only when no transaction was submitted.
+   */
+  estimatedFeeStroops?: number;
   /** Error message when `success` is false, describing why the call failed. */
   error?: string;
   /**

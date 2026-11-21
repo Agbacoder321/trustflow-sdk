@@ -45,10 +45,12 @@ Thank you for contributing to TrustFlow SDK! This guide will help you set up you
 | `npm run typecheck:tests` | Type-check `tests/` (Jest doesn't type-check by default) |
 | `npm run test` | Run Jest tests |
 | `npm run test:coverage` | Run tests with coverage report (enforces global thresholds) |
+| `npm run examples:check` | Type-check `examples/` against `examples/tsconfig.json` |
 | `npm run lint` | Run ESLint on `src/` |
 | `npm run lint:fix` | Auto-fix linting issues |
 | `npm run format` | Format code with Prettier |
 | `npm run format:check` | Check if code is formatted correctly |
+| `npm run check-docs` | Check public API documentation coverage (`scripts/check-doc-coverage.js`) |
 | `npm run lint:strict` | Run ESLint with strict config (extra rules) |
 | `npm run docs` | Generate HTML API documentation (outputs to `docs/reference/`) |
 | `npm run docs:watch` | Watch mode for documentation |
@@ -74,8 +76,10 @@ Thank you for contributing to TrustFlow SDK! This guide will help you set up you
 3. **Run checks before committing**
    ```bash
    npm run typecheck
+   npm run examples:check
    npm run lint
    npm run format:check
+   npm run check-docs
    npm run test
    ```
 
@@ -118,7 +122,7 @@ Thank you for contributing to TrustFlow SDK! This guide will help you set up you
 
 Run the full check suite:
 ```bash
-npm run typecheck && npm run typecheck:tests && npm run lint && npm run test:coverage
+npm run typecheck && npm run typecheck:tests && npm run examples:check && npm run lint && npm run check-docs && npm run test:coverage
 ```
 
 All must pass before opening a PR.

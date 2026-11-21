@@ -2,8 +2,16 @@
 
 ## [Unreleased]
 
+- Issue #634: createEscrow rejects a supplied deadline/expiresAt with VALIDATION_ERROR instead of silently dropping it
+- Issue #638: maxStoredSalts: 0 retains no salts; negative, non-integer and NaN values are rejected
+- Issue #639: IPFSStorage encrypt/decrypt resolves Node crypto without relying on a bundler require shim
+- Issue #640: CONTRACT_BINDINGS states that unsupported spec entries throw, not skipped
+
 ### Fixed
 
+- Issue #653: Removed the stale claim in `tests/monitor-handler-types.test.ts` that `npm run typecheck:tests` is blocked by a syntax error in `src/contract/read.ts`.
+- Issue #654: Replaced the three empty `it.skip` placeholders for `signMessageWithFreighter` with real tests covering success, `UNAUTHORIZED` and `SIGNING_ERROR`.
+- Issue #712: `fund()` now returns a clear network-mismatch error naming the token contract and configured network when simulation reports the token contract cannot be found or loaded.
 - Issue #620: Enforced the documented `maxJsonLength` limit in `validateRequestSize` so the configured and default JSON string-length limits reject oversized bodies before the UTF-8 byte-size check.
 - Issue #621: Guarded `useWallet.connect()` with a monotonic call id so superseded connection attempts cannot overwrite newer wallet, error, rejection, or loading state.
 - Issue #622: Stopped the synchronous `useJuror.createVoteCommitment` and `revealVote` wrappers from toggling `loading`; the flag now documents as tracking only the asynchronous `vote()` call.
@@ -353,8 +361,8 @@ unscoped key, so sessions written by earlier SDK versions still load.
   `dist/hooks/index.mjs` start with a `'use client'` directive. The entry exports hooks that call
   `useState`, `useEffect` and `useCallback`, so in the Next.js App Router importing it from a
   Server Component — or from any file that is not itself marked `'use client'` — failed, forcing
-  every consumer to re-wrap the hooks in their own client file. The repo's own `.env.example` uses
-  `NEXT_PUBLIC_*` variables, so App Router consumers are the expected audience. The root, `/escrow`,
+  every consumer to re-wrap the hooks in their own client file. Next.js App Router consumers are the
+  expected audience. The root, `/escrow`,
   `/wallet` and `/utils` entries are deliberately left unmarked so they stay server-safe. The
   directive is injected into the build output by `scripts/inject-use-client.js`, run after `tsup`
   in `npm run build`, because a module-level directive does not survive bundling — a `'use client'`

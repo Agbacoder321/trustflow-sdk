@@ -24,7 +24,12 @@ export async function connectWallet(type: WalletType = 'freighter'): Promise<Wal
     try {
       const publicKey = await freighter.getPublicKey();
       if (!publicKey) {
-        throw TrustFlowError.userRejected('User rejected Freighter connection');
+        // Freighter installed but no key: almost always a locked wallet (#723).
+        // Not a rejection, so it is not reported as USER_REJECTED.
+        throw new TrustFlowError(
+          'Freighter returned no public key. It may be locked: unlock Freighter and try again.',
+          'UNAUTHORIZED',
+        );
       }
       const network = await freighter.getNetwork();
       return { type: 'freighter', publicKey, network: network || 'TESTNET' };
