@@ -429,6 +429,57 @@ export class TrustFlowEscrowClient {
   }
 
   /**
+   * Previews what releasing an escrow costs, without submitting anything (#720).
+   *
+   * Simulates `release_escrow` and returns the estimated fee in stroops: the base
+   * inclusion fee plus the simulated resource fee. Submission pads the resource
+   * fee by 1.1 (`resourceFeeMultiplier`), so the fee charged can be up to about
+   * 10% above this estimate if ledger state does not change in between.
+   *
+   * @param escrowId - ID of the escrow to release
+   * @param releaserAddress - Stellar address of the authorised releaser
+   * @returns `{ ok: true, data: { estimatedFeeStroops } }`, or `{ ok: false, error }`
+   *
+   * @example
+   * ```typescript
+   * const preview = await client.estimateReleaseFee('esc-123', wallet.publicKey);
+   * if (preview.ok) console.log('Estimated fee (stroops):', preview.data.estimatedFeeStroops);
+   * ```
+   */
+  async estimateReleaseFee(
+    escrowId: string,
+    releaserAddress: string,
+  ): Promise<SDKResult<{ estimatedFeeStroops: number }>> {
+    const validation = ReleaseEscrowSchema.safeParse({
+      escrowId,
+      recipient: releaserAddress,
+      network: this.contractConfig.network ?? 'TESTNET',
+    });
+    if (!validation.success) {
+      const fieldErrors = Object.entries(validation.error.flatten().fieldErrors)
+        .map(([field, msgs]) => `${field}: ${msgs?.join(', ')}`)
+        .join('; ');
+      return { ok: false, error: `Validation failed: ${fieldErrors}` };
+    }
+
+    let args: unknown[];
+    try {
+      args = buildReleaseArgs(escrowId, releaserAddress);
+    } catch (e) {
+      return { ok: false, error: `Failed to encode release arguments: ${String(e)}` };
+    }
+
+    const result = await invokeContract(this.getTrustFlowClient(), 'release_escrow', args, releaserAddress);
+    if (!result.success) {
+      return { ok: false, error: result.error ?? 'Release fee estimation failed' };
+    }
+    if (typeof result.estimatedFeeStroops !== 'number') {
+      return { ok: false, error: 'Simulation did not return a fee estimate' };
+    }
+    return { ok: true, data: { estimatedFeeStroops: result.estimatedFeeStroops } };
+  }
+
+  /**
    * Fetches the current state of an escrow from contract storage.
    *
    * @param escrowId - ID of the escrow to fetch
