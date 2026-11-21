@@ -50,6 +50,33 @@ export interface TrustFlowEscrowClientOptions {
   interceptors?: HttpInterceptors;
 }
 
+/**
+ * Simulation error fragments that mean the RPC could not find or load a
+ * contract on the network it simulated against. The Soroban RPC returns these
+ * verbatim in the simulation `error` field; they are deliberately specific so a
+ * bare "not found" (for example `escrow not found`) never matches.
+ */
+const CONTRACT_NOT_FOUND_PATTERNS: readonly RegExp[] = [
+  /cannot parse contract code/i,
+  /contract not found/i,
+  /missing contract/i,
+  /no such contract/i,
+  /non-?existent contract/i,
+];
+
+/**
+ * Reports whether a contract-call error message says a contract could not be
+ * found or loaded on the network that was simulated against — the symptom of
+ * passing a contract ID that belongs to a different network (for example a
+ * mainnet USDC contract on a TESTNET client).
+ *
+ * @param message - Error text from a failed simulation
+ * @returns `true` when the text matches a known "contract missing" fragment
+ */
+export function isContractNotFoundError(message: string): boolean {
+  return CONTRACT_NOT_FOUND_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 function parseFilterDate(val: Date | number | string): string | null {
   try {
     const d = val instanceof Date ? val : new Date(val);
@@ -289,7 +316,11 @@ export class TrustFlowEscrowClient {
    * @param amountStroops - Amount to lock, in stroops (7 decimal places)
    * @param tokenAddress - Contract address of the asset to transfer (e.g. the
    *   USDC Soroban token contract); omit to use the escrow's native asset
-   * @returns `{ ok: true, data: { txHash } }` on success, `{ ok: false, error }` on failure
+   * @returns `{ ok: true, data: { txHash } }` on success, `{ ok: false, error }` on failure.
+   *   When `tokenAddress` is given and the simulation reports the contract could
+   *   not be found or loaded (see {@link isContractNotFoundError}), the error
+   *   names the token contract and the configured network and says the ID may
+   *   belong to a different network. Other errors are returned unchanged.
    *
    * @example
    * ```typescript
@@ -333,6 +364,15 @@ export class TrustFlowEscrowClient {
       'Escrow funding',
     );
     if (!submission.ok) {
+      if (tokenAddress && isContractNotFoundError(submission.error)) {
+        const network = this.contractConfig.network ?? 'TESTNET';
+        return {
+          ok: false,
+          error:
+            `Token contract ${tokenAddress} does not exist on the configured network (${network}). ` +
+            `The contract ID may belong to a different network. (RPC: ${submission.error})`,
+        };
+      }
       return { ok: false, error: submission.error };
     }
 
@@ -386,6 +426,57 @@ export class TrustFlowEscrowClient {
     }
 
     return { ok: true, data: { txHash: submission.txHash } };
+  }
+
+  /**
+   * Previews what releasing an escrow costs, without submitting anything (#720).
+   *
+   * Simulates `release_escrow` and returns the estimated fee in stroops: the base
+   * inclusion fee plus the simulated resource fee. Submission pads the resource
+   * fee by 1.1 (`resourceFeeMultiplier`), so the fee charged can be up to about
+   * 10% above this estimate if ledger state does not change in between.
+   *
+   * @param escrowId - ID of the escrow to release
+   * @param releaserAddress - Stellar address of the authorised releaser
+   * @returns `{ ok: true, data: { estimatedFeeStroops } }`, or `{ ok: false, error }`
+   *
+   * @example
+   * ```typescript
+   * const preview = await client.estimateReleaseFee('esc-123', wallet.publicKey);
+   * if (preview.ok) console.log('Estimated fee (stroops):', preview.data.estimatedFeeStroops);
+   * ```
+   */
+  async estimateReleaseFee(
+    escrowId: string,
+    releaserAddress: string,
+  ): Promise<SDKResult<{ estimatedFeeStroops: number }>> {
+    const validation = ReleaseEscrowSchema.safeParse({
+      escrowId,
+      recipient: releaserAddress,
+      network: this.contractConfig.network ?? 'TESTNET',
+    });
+    if (!validation.success) {
+      const fieldErrors = Object.entries(validation.error.flatten().fieldErrors)
+        .map(([field, msgs]) => `${field}: ${msgs?.join(', ')}`)
+        .join('; ');
+      return { ok: false, error: `Validation failed: ${fieldErrors}` };
+    }
+
+    let args: unknown[];
+    try {
+      args = buildReleaseArgs(escrowId, releaserAddress);
+    } catch (e) {
+      return { ok: false, error: `Failed to encode release arguments: ${String(e)}` };
+    }
+
+    const result = await invokeContract(this.getTrustFlowClient(), 'release_escrow', args, releaserAddress);
+    if (!result.success) {
+      return { ok: false, error: result.error ?? 'Release fee estimation failed' };
+    }
+    if (typeof result.estimatedFeeStroops !== 'number') {
+      return { ok: false, error: 'Simulation did not return a fee estimate' };
+    }
+    return { ok: true, data: { estimatedFeeStroops: result.estimatedFeeStroops } };
   }
 
   /**

@@ -358,6 +358,10 @@ export function createMockSorobanServer(options: MockSorobanServerOptions = {}):
       checkError();
       return {
         status: currentTxStatus,
+        // The real RPC reports the included ledger only once the transaction is final.
+        ...(currentTxStatus === 'SUCCESS' || currentTxStatus === 'FAILED'
+          ? { ledger: currentLatestLedger }
+          : {}),
         resultXdr: currentReturnValueScVal.toXDR('base64'),
         resultMetaXdr: 'AAAA',
         latestLedger: currentLatestLedger,
