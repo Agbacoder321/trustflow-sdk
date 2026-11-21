@@ -507,7 +507,14 @@ export class MockWalletAdapter {
   }
 
   /**
-   * Configures the next method call (connect, signTransaction, signAuthEntry) to reject with an error (Issue #478).
+   * Configures the next method call to reject with an error (Issue #478).
+   *
+   * The rejection is one-shot and shared by every method that checks it:
+   * `connect`, `getPublicKey`, `signTransaction` and `signAuthEntry`. The
+   * adapter's `sign` (via `asWalletAdapter`) delegates to `signTransaction`, so
+   * it consumes the rejection too. Because `getPublicKey` consumes it, a
+   * `getPublicKey` call made before the signature under test will absorb the
+   * rejection (#635).
    */
   rejectNext(error: Error | string = new Error('User declined transaction')): this {
     this.nextRejection = typeof error === 'string' ? new Error(error) : error;
@@ -598,22 +605,41 @@ export class MockWalletAdapter {
  */
 export function createPlaywrightWalletScript(options: MockWalletAdapterOptions = {}): string {
   const pubKey = options.publicKey ?? 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
-  const shouldReject = !!options.shouldReject;
+  // Matches MockWalletAdapter: rejectNextError wins, otherwise shouldReject
+  // rejects once. The rejection is one-shot and shared by every method that
+  // checks it, exactly as in the class (#637).
+  const pending = options.rejectNextError
+    ? typeof options.rejectNextError === 'string'
+      ? options.rejectNextError
+      : options.rejectNextError.message
+    : options.shouldReject
+      ? 'User rejected request'
+      : null;
   return `
+    (() => {
+      let pending = ${JSON.stringify(pending)};
+      const take = () => {
+        if (pending !== null) {
+          const message = pending;
+          pending = null;
+          throw new Error(message);
+        }
+      };
     window.freighter = {
       isConnected: async () => true,
       isAllowed: async () => true,
       getPublicKey: async () => {
-        if (${shouldReject}) throw new Error('User rejected request');
+        take();
         return '${pubKey}';
       },
       signTransaction: async (xdr) => {
-        if (${shouldReject}) throw new Error('User declined transaction');
+        take();
         return { signedXDR: xdr };
       },
       getNetwork: async () => 'TESTNET',
       signMessage: async (msg) => 'mock_sig_' + msg
     };
+    })();
   `;
 }
 
