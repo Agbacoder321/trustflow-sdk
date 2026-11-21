@@ -84,7 +84,7 @@ export class TokenRefreshManager {
 
   /** Handle returned by `setTimeout`; `null` when no timer is pending. */
   private timerId: ReturnType<typeof setTimeout> | null = null;
-
+  private refreshGeneration: number = 0;
   /**
    * When a refresh is in-flight this promise resolves with the new session.
    * All concurrent callers share the same promise (single-flight).
@@ -158,7 +158,7 @@ export class TokenRefreshManager {
 
   /** Cancels any pending timer and abandons an in-flight refresh. */
   stop(): void {
-    this.generation++;
+     this.refreshGeneration++;
     if (this.timerId !== null) {
       clearTimeout(this.timerId);
       this.timerId = null;
@@ -204,10 +204,11 @@ export class TokenRefreshManager {
       return this.inflightRefresh;
     }
 
-    this.inflightRefresh = this.doRefresh();
+    const refresh = this.doRefresh(this.refreshGeneration);
+    this.inflightRefresh = refresh;
 
     try {
-      const session = await this.inflightRefresh;
+      const session = await refresh;
       return session;
     } finally {
       this.inflightRefresh = null;
@@ -218,8 +219,7 @@ export class TokenRefreshManager {
    * The actual HTTP call + session persistence + re-schedule. Separated from
    * `performRefresh` so the single-flight guard stays clean.
    */
-  private async doRefresh(): Promise<Session> {
-    const generation = this.generation;
+   private async doRefresh(generation: number): Promise<Session> {
     const currentSession = loadSession(this.scope);
     if (!currentSession) {
       throw new TrustFlowError('Cannot refresh: no active session', 'AUTH_ERROR');
@@ -238,6 +238,10 @@ export class TokenRefreshManager {
           Authorization: `Bearer ${currentSession.token}`,
         },
       });
+       
+      if (generation !== this.refreshGeneration) {
+        throw new TrustFlowError('Token refresh was stopped', 'AUTH_ERROR');
+      }
 
       const newToken = response.data.token;
       if (
@@ -264,7 +268,11 @@ export class TokenRefreshManager {
       this.start();
 
       return newSession;
-    } catch (error) {
+    }catch (error) {
+      if (generation !== this.refreshGeneration) {
+        throw error;
+      }
+
       const wrapped =
         error instanceof TrustFlowError
           ? error
