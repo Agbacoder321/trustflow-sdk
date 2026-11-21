@@ -101,6 +101,27 @@ export interface AuthFlowOptions extends AuthRequestOptions {
    * Optional scope for session storage (e.g., account ID for multi-account apps).
    */
   scope?: string;
+  /**
+   * How long to wait for the wallet to sign the challenge, in milliseconds. Defaults to 60 seconds,
+   * the same lifetime the backend gives a challenge. A wallet prompt closed without a response
+   * rejects with a `TIMEOUT` error instead of hanging.
+   */
+  signTimeoutMs?: number;
+}
+
+/** Wallet signing wait used when `signTimeoutMs` is not set. Matches the challenge lifetime. */
+const DEFAULT_SIGN_TIMEOUT_MS = 60_000;
+
+/** Rejects with a `TIMEOUT` error if `work` has not settled within `ms`. The timer is always cleared. */
+function withSignTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new TrustFlowError('Wallet did not respond to the signing request in time', 'TIMEOUT')),
+      ms,
+    );
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -150,8 +171,9 @@ export async function authenticateWithWallet(
   let signature: string;
   try {
     if ('signMessage' in signer) {
-      // Wallet adapter (Freighter, Albedo, etc.)
-      signature = await signer.signMessage(challenge.challenge);
+      // Wallet adapter (Freighter, Albedo, etc.). Bounded, so a closed prompt cannot hang the flow.
+      const timeoutMs = options.signTimeoutMs ?? DEFAULT_SIGN_TIMEOUT_MS;
+      signature = await withSignTimeout(signer.signMessage(challenge.challenge), timeoutMs);
     } else {
       // Raw Keypair (Node/CLI)
       const messageBytes = Buffer.from(challenge.challenge, 'utf-8');
@@ -161,6 +183,7 @@ export async function authenticateWithWallet(
     logger.debug('Challenge signed', { address });
   } catch (error) {
     logger.error('Failed to sign challenge', { address, error });
+    if ((error as { code?: string } | null)?.code === 'TIMEOUT') throw error;
     throw new TrustFlowError('Failed to sign challenge', 'SIGNING_ERROR', error);
   }
 

@@ -17,6 +17,40 @@
 ### Architecture doc lists the `/testing` entry point (#576)
 
 - Issue #576: `docs/ARCHITECTURE.md` now lists `src/testing/` in the module map and `@trustflow/sdk/testing` in the entry-points table (seven entry points), and clarifies that `/testing` is a test-only entry outside the browser-safe set.
+- Issue #634: createEscrow rejects a supplied deadline/expiresAt with VALIDATION_ERROR instead of silently dropping it
+- Issue #638: maxStoredSalts: 0 retains no salts; negative, non-integer and NaN values are rejected
+- Issue #639: IPFSStorage encrypt/decrypt resolves Node crypto without relying on a bundler require shim
+- Issue #640: CONTRACT_BINDINGS states that unsupported spec entries throw, not skipped
+
+### Fixed
+
+- Issue #653: Removed the stale claim in `tests/monitor-handler-types.test.ts` that `npm run typecheck:tests` is blocked by a syntax error in `src/contract/read.ts`.
+- Issue #654: Replaced the three empty `it.skip` placeholders for `signMessageWithFreighter` with real tests covering success, `UNAUTHORIZED` and `SIGNING_ERROR`.
+- Issue #712: `fund()` now returns a clear network-mismatch error naming the token contract and configured network when simulation reports the token contract cannot be found or loaded.
+- Issue #620: Enforced the documented `maxJsonLength` limit in `validateRequestSize` so the configured and default JSON string-length limits reject oversized bodies before the UTF-8 byte-size check.
+- Issue #621: Guarded `useWallet.connect()` with a monotonic call id so superseded connection attempts cannot overwrite newer wallet, error, rejection, or loading state.
+- Issue #622: Stopped the synchronous `useJuror.createVoteCommitment` and `revealVote` wrappers from toggling `loading`; the flag now documents as tracking only the asynchronous `vote()` call.
+- Issue #623: Validated the CID portion of `ipfs://` avatar URLs in `ProfileClient.updateProfile` with the SDK's `isValidCid` validator.
+### Sandbox README environment variables (#659)
+
+- Issue #659: Removed the "Configuration & Environment Variables" section from `examples/react/README.md`; the `VITE_*` variables it documented are never read by the sandbox.
+
+### invokeContract gasUsed fallback (#646)
+
+- Issue #646: `invokeContract` now falls back to `minResourceFee` when `cost.cpuInsns` is zero or missing, comparing numerically instead of relying on string truthiness.
+
+### storage-resolve test mock queue (#658)
+
+- Issue #658: `STORAGE_GATEWAY_ERROR` test in `tests/storage-resolve.test.ts` now resolves once against its three queued mocks and fails on any unexpected `axios.get` call instead of reaching the network.
+
+### Stale axios-retry references (#647)
+
+- Issue #647: Removed `axios-retry` from the direct dependency list in `SECURITY.md` and the auto-retry roadmap item in `README.md`; the SDK has no such dependency.
+### Multi-sig operation binding, mock wallet parity and abort helper docs (#715, #660, #655)
+
+- Issue #715: Added tests for `MultiSigEscrowClient.addSignature` showing that a signed XDR for a different operation is rejected and stored nowhere, plus coverage for the normal, failure and authorisation paths.
+- Issue #660: `createPlaywrightWalletScript()` now signs messages as `mock_sig_<message>`, matching `toFreighterGlobal().signMessage`, and tests check both injection paths return the same result.
+- Issue #655: Documented `trackAndDestroyOnAbort` in `src/utils/connection-pool.ts` as a manual, opt-in helper that the SDK's own request paths do not call, and clarified the matching test suite as isolated-only.
 
 ### Single CID validator (#562)
 
@@ -342,8 +376,8 @@ unscoped key, so sessions written by earlier SDK versions still load.
   `dist/hooks/index.mjs` start with a `'use client'` directive. The entry exports hooks that call
   `useState`, `useEffect` and `useCallback`, so in the Next.js App Router importing it from a
   Server Component — or from any file that is not itself marked `'use client'` — failed, forcing
-  every consumer to re-wrap the hooks in their own client file. The repo's own `.env.example` uses
-  `NEXT_PUBLIC_*` variables, so App Router consumers are the expected audience. The root, `/escrow`,
+  every consumer to re-wrap the hooks in their own client file. Next.js App Router consumers are the
+  expected audience. The root, `/escrow`,
   `/wallet` and `/utils` entries are deliberately left unmarked so they stay server-safe. The
   directive is injected into the build output by `scripts/inject-use-client.js`, run after `tsup`
   in `npm run build`, because a module-level directive does not survive bundling — a `'use client'`

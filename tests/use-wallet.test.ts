@@ -239,4 +239,116 @@ describe('useWallet', () => {
     expect(result.current.isRejected).toBe(false);
     expect(result.current.error).toBeNull();
   });
+
+  it('ignores a stale success that settles after a newer rejection (#621)', async () => {
+    let resolveSlow: (w: WalletConnection) => void = () => undefined;
+    mockConnect
+      .mockImplementationOnce(
+        () =>
+          new Promise<WalletConnection>((resolve) => {
+            resolveSlow = resolve;
+          }),
+      )
+      .mockRejectedValueOnce(new Error('User rejected the request'));
+    const { result } = renderHook(() => useWallet());
+
+    let slow: Promise<WalletConnection>;
+    act(() => {
+      slow = result.current.connect('freighter');
+    });
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      await expect(result.current.connect('albedo')).rejects.toThrow('User rejected the request');
+    });
+    expect(result.current.error).toBe('User rejected the request');
+    expect(result.current.isRejected).toBe(true);
+    expect(result.current.wallet).toBeNull();
+
+    await act(async () => {
+      resolveSlow(connection);
+      await slow;
+    });
+
+    expect(result.current.wallet).toBeNull();
+    expect(result.current.error).toBe('User rejected the request');
+    expect(result.current.isRejected).toBe(true);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('ignores a stale rejection that settles after a newer success (#621)', async () => {
+    let rejectSlow: (error: Error) => void = () => undefined;
+    const albedoConnection: WalletConnection = { ...connection, type: 'albedo' };
+    mockConnect
+      .mockImplementationOnce(
+        () =>
+          new Promise<WalletConnection>((_resolve, reject) => {
+            rejectSlow = reject;
+          }),
+      )
+      .mockResolvedValueOnce(albedoConnection);
+    const { result } = renderHook(() => useWallet());
+
+    let slow: Promise<WalletConnection>;
+    act(() => {
+      slow = result.current.connect('freighter');
+    });
+    await act(async () => {
+      await result.current.connect('albedo');
+    });
+    expect(result.current.wallet).toBe(albedoConnection);
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      rejectSlow(new Error('Freighter popup closed'));
+      await expect(slow).rejects.toThrow('Freighter popup closed');
+    });
+
+    expect(result.current.wallet).toBe(albedoConnection);
+    expect(result.current.error).toBeNull();
+    expect(result.current.isRejected).toBe(false);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('keeps loading true until the newest of two pending connections settles (#621)', async () => {
+    let resolveSlow: (w: WalletConnection) => void = () => undefined;
+    let resolveFast: (w: WalletConnection) => void = () => undefined;
+    const albedoConnection: WalletConnection = { ...connection, type: 'albedo' };
+    mockConnect
+      .mockImplementationOnce(
+        () =>
+          new Promise<WalletConnection>((resolve) => {
+            resolveSlow = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<WalletConnection>((resolve) => {
+            resolveFast = resolve;
+          }),
+      );
+    const { result } = renderHook(() => useWallet());
+
+    let slow: Promise<WalletConnection>;
+    let fast: Promise<WalletConnection>;
+    act(() => {
+      slow = result.current.connect('freighter');
+      fast = result.current.connect('albedo');
+    });
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      resolveSlow(connection);
+      await slow;
+    });
+    expect(result.current.loading).toBe(true);
+    expect(result.current.wallet).toBeNull();
+
+    await act(async () => {
+      resolveFast(albedoConnection);
+      await fast;
+    });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.wallet).toBe(albedoConnection);
+  });
 });

@@ -32,4 +32,34 @@ describe('MockWalletAdapter rejection and browser injection (Issue #478)', () =>
     expect(script).toContain('window.freighter');
     expect(script).toContain('G123');
   });
+
+  it('signs messages through toFreighterGlobal() per message', async () => {
+    const globalObj = new MockWalletAdapter().toFreighterGlobal();
+
+    expect(await globalObj.signMessage('hello')).toBe('mock_sig_hello');
+    expect(await globalObj.signMessage('world')).toBe('mock_sig_world');
+  });
+
+  it('signs messages through the createPlaywrightWalletScript() injection per message', async () => {
+    const script = createPlaywrightWalletScript({ publicKey: 'G123' });
+    const injected: { freighter?: { signMessage: (m: string) => Promise<string> } } = {};
+    // Evaluate the generated init script against a stand-in window, as the browser would.
+    new Function('window', script)(injected);
+
+    expect(await injected.freighter?.signMessage('hello')).toBe('mock_sig_hello');
+    expect(await injected.freighter?.signMessage('world')).toBe('mock_sig_world');
+  });
+
+  it('makes signMessage behave the same through both injection paths', async () => {
+    const wallet = new MockWalletAdapter({ publicKey: 'G123' });
+    const jestSide = wallet.toFreighterGlobal();
+    const injected: { freighter?: { signMessage: (m: string) => Promise<string> } } = {};
+    new Function('window', createPlaywrightWalletScript({ publicKey: 'G123' }))(injected);
+
+    for (const message of ['', 'hello', 'a message with spaces']) {
+      expect(await injected.freighter?.signMessage(message)).toBe(
+        await jestSide.signMessage(message),
+      );
+    }
+  });
 });

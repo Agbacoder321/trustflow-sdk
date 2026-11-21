@@ -65,10 +65,16 @@ src/
 │   └── index.ts           # Exports
 │
 ├── storage/               # IPFS file uploads
-│   └── index.ts           # IPFSStorage (available on client.storage)
+│   ├── cid.ts             # CID validation: isValidCid, validateCID, getCidVersion, assertValidCid
+│   ├── ipfs.ts            # IPFSStorage class (available on client.storage)
+│   └── index.ts           # Re-exports IPFSStorage
 │
 ├── stellar/               # Network & Horizon utilities
+│   ├── account.ts         # fetchAccountInfo
+│   ├── monitor.ts         # AccountBalanceMonitor
 │   ├── network.ts         # Network type (string union: 'TESTNET' | 'MAINNET')
+│   ├── signing.ts         # Verification of Freighter/Albedo envelope signatures
+│   ├── transaction.ts     # submitTransaction
 │   └── index.ts           # Exports
 │
 ├── utils/                 # Cross-cutting helpers

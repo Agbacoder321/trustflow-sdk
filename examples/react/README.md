@@ -40,17 +40,6 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 npm run build
 ```
 
-## Configuration & Environment Variables
-
-The sandbox connects to Stellar Testnet by default. You can override network settings by creating a `.env` file in this directory:
-
-```env
-VITE_HORIZON_URL=https://horizon-testnet.stellar.org
-VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
-VITE_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
-VITE_CONTRACT_ID=CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4
-```
-
 ## Code Example
 
 ```tsx

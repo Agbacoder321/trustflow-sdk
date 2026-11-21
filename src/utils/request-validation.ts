@@ -8,7 +8,7 @@ import { TrustFlowError } from '../errors';
 export interface RequestValidationConfig {
   /** Maximum allowed request body size in bytes. Defaults to 10MB. */
   maxRequestSizeBytes?: number;
-  /** Maximum allowed JSON string length before serialization. */
+  /** Maximum allowed JSON string length before serialization. Defaults to 5MB. */
   maxJsonLength?: number;
 }
 
@@ -16,13 +16,17 @@ export const DEFAULT_MAX_REQUEST_SIZE = 10 * 1024 * 1024; // 10MB
 export const DEFAULT_MAX_JSON_LENGTH = 5 * 1024 * 1024; // 5MB
 
 /**
- * Calculates the byte size of a JSON-serializable value.
- * Uses UTF-8 encoding for accurate measurement.
+ * Serializes a value once so both the string-length and UTF-8 byte-size limits
+ * can be checked without paying for serialization twice.
  */
-export function getJsonSizeBytes(obj: unknown): number {
+function serializeForSize(obj: unknown): { json: string; sizeBytes: number } {
+  let json: string;
   try {
-    const json = JSON.stringify(obj);
-    return new Blob([json]).size;
+    const serialized: string | undefined = JSON.stringify(obj);
+    if (serialized === undefined) {
+      throw new TypeError('Value is not JSON-serializable');
+    }
+    json = serialized;
   } catch (error) {
     throw new TrustFlowError(
       'Failed to calculate request size: non-serializable object',
@@ -30,18 +34,34 @@ export function getJsonSizeBytes(obj: unknown): number {
       error,
     );
   }
+  return { json, sizeBytes: new Blob([json]).size };
+}
+
+/**
+ * Calculates the byte size of a JSON-serializable value.
+ * Uses UTF-8 encoding for accurate measurement.
+ */
+export function getJsonSizeBytes(obj: unknown): number {
+  return serializeForSize(obj).sizeBytes;
 }
 
 /**
  * Validates that a request body doesn't exceed size limits.
  * @param body - The request body object
  * @param config - Validation configuration
- * @throws {TrustFlowError} If request exceeds size limits
+ * @throws {TrustFlowError} If the JSON string length or encoded body size exceeds its limit
  */
 export function validateRequestSize(body: unknown, config?: RequestValidationConfig): void {
   const maxSize = config?.maxRequestSizeBytes ?? DEFAULT_MAX_REQUEST_SIZE;
+  const maxJsonLength = config?.maxJsonLength ?? DEFAULT_MAX_JSON_LENGTH;
+  const { json, sizeBytes } = serializeForSize(body);
 
-  const sizeBytes = getJsonSizeBytes(body);
+  if (json.length > maxJsonLength) {
+    throw new TrustFlowError(
+      `Request JSON length (${json.length} characters) exceeds maximum allowed length (${maxJsonLength} characters)`,
+      'VALIDATION_ERROR',
+    );
+  }
 
   if (sizeBytes > maxSize) {
     const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);

@@ -8,6 +8,14 @@ import type {
 } from '../types/juror';
 import type { SDKResult } from '../types/index';
 
+/**
+ * React hook for juror actions.
+ *
+ * `loading` tracks only the asynchronous `vote()` call. `createVoteCommitment`
+ * and `revealVote` wrap synchronous client calls: they keep Promise-returning
+ * signatures for compatibility, but complete without a render where `loading`
+ * is true.
+ */
 export function useJuror(jurorClient: JurorClient) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,22 +51,12 @@ export function useJuror(jurorClient: JurorClient) {
 
   const createVoteCommitment = useCallback(
     async (voteForDepositor: boolean, salt?: Uint8Array): Promise<VoteCommitment> => {
-      const callId = ++callIdRef.current;
-      setLoading(true);
       setError(null);
       try {
-        const commitment = jurorClient.createVoteCommitment(voteForDepositor, salt);
-        return commitment;
+        return jurorClient.createVoteCommitment(voteForDepositor, salt);
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (callId === callIdRef.current) {
-          setError(msg);
-        }
+        setError(e instanceof Error ? e.message : String(e));
         throw e;
-      } finally {
-        if (callId === callIdRef.current) {
-          setLoading(false);
-        }
       }
     },
     [jurorClient],
@@ -66,22 +64,12 @@ export function useJuror(jurorClient: JurorClient) {
 
   const revealVote = useCallback(
     async (voteForDepositor: boolean, salt: Uint8Array): Promise<RevealVoteResult> => {
-      const callId = ++callIdRef.current;
-      setLoading(true);
       setError(null);
       try {
-        const result = jurorClient.revealVote(voteForDepositor, salt);
-        return result;
+        return jurorClient.revealVote(voteForDepositor, salt);
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (callId === callIdRef.current) {
-          setError(msg);
-        }
+        setError(e instanceof Error ? e.message : String(e));
         throw e;
-      } finally {
-        if (callId === callIdRef.current) {
-          setLoading(false);
-        }
       }
     },
     [jurorClient],

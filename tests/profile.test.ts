@@ -194,9 +194,39 @@ describe('ProfileClient', () => {
       expect(res1.ok).toBe(true);
 
       const res2 = await client.updateProfile(ADDRESS, {
-        avatarUrl: 'ipfs://bafybeic5678',
+        avatarUrl: 'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
       });
       expect(res2.ok).toBe(true);
+
+      const res3 = await client.updateProfile(ADDRESS, {
+        avatarUrl: 'ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG',
+      });
+      expect(res3.ok).toBe(true);
+
+      const res4 = await client.updateProfile(ADDRESS, {
+        avatarUrl: 'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/avatar.png',
+      });
+      expect(res4.ok).toBe(true);
+    });
+
+    it('rejects ipfs avatarUrl values with a malformed CID (#623)', async () => {
+      mockHttpPut.mockResolvedValue({ data: { address: ADDRESS } });
+      const client = new ProfileClient('http://api', 'tok');
+
+      for (const avatarUrl of [
+        'ipfs://',
+        'ipfs://x',
+        'ipfs://not-a-real-cid',
+        'ipfs://bafybeic5678',
+        `ipfs://Qm${'1'.repeat(44)}`,
+      ]) {
+        const result = await client.updateProfile(ADDRESS, { avatarUrl });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error).toMatch(/avatarUrl/);
+        }
+      }
+      expect(mockHttpPut).not.toHaveBeenCalled();
     });
   });
 });

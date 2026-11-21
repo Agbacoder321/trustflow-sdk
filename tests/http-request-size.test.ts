@@ -30,6 +30,20 @@ describe('request body size validation on createApiHttpClient (#436)', () => {
     expect(adapter).not.toHaveBeenCalled();
   });
 
+  it('rejects a JSON body over maxJsonLength without calling the adapter (#620)', async () => {
+    const http = createApiHttpClient({
+      baseURL,
+      requestValidation: { maxJsonLength: 32, maxRequestSizeBytes: 1024 },
+    });
+    const adapter = recordingAdapter();
+    http.defaults.adapter = adapter;
+
+    await expect(http.post('/things', { payload: 'x'.repeat(64) })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(adapter).not.toHaveBeenCalled();
+  });
+
   it('sends a JSON body that is within the configured limit', async () => {
     const http = createApiHttpClient({
       baseURL,
@@ -70,7 +84,10 @@ describe('request body size validation on createApiHttpClient (#436)', () => {
   });
 
   it('reports a local validation failure by its message, not as a network error', () => {
-    const error = new TrustFlowError('Request body size (2.00MB) exceeds maximum', 'VALIDATION_ERROR');
+    const error = new TrustFlowError(
+      'Request body size (2.00MB) exceeds maximum',
+      'VALIDATION_ERROR',
+    );
 
     expect(toApiErrorMessage(error)).toBe('Request body size (2.00MB) exceeds maximum');
   });

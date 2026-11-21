@@ -157,16 +157,20 @@ describe('IPFSStorage.resolve - Issue #348', () => {
       ],
     });
 
-    await expect(storage.resolve(cid)).rejects.toThrow(TrustFlowError);
+    // Any unexpected extra call must fail here instead of reaching the real network.
+    getSpy.mockRejectedValue(new Error('unexpected axios.get call'));
 
-    try {
-      await storage.resolve(cid);
-    } catch (err) {
-      expect(err).toBeInstanceOf(TrustFlowError);
-      const tfErr = err as TrustFlowError;
-      expect(tfErr.code).toBe('STORAGE_GATEWAY_ERROR');
-      expect(tfErr.message).toContain(cid);
-    }
+    // Resolve once: the queue covers exactly one cycle over the three gateways.
+    const err = await storage.resolve(cid).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(TrustFlowError);
+    const tfErr = err as TrustFlowError;
+    expect(tfErr.code).toBe('STORAGE_GATEWAY_ERROR');
+    expect(tfErr.message).toContain(cid);
+    expect(getSpy).toHaveBeenCalledTimes(3);
   }, 10000); // Increase timeout to 10s
 
   it('rejects invalid CIDs before querying gateways', async () => {

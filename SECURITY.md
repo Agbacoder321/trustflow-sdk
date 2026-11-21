@@ -85,7 +85,7 @@ The SDK uses `npm ci` for deterministic builds. Dependencies are pinned to exact
 
 The main direct dependencies are:
 - `@stellar/stellar-sdk` — Stellar JavaScript SDK (cryptography, XDR, Soroban RPC)
-- `axios` + `axios-retry` — HTTP client for backend API
+- `axios` — HTTP client for backend API
 - `zod` — Runtime schema validation
 - `react` (peer dependency, optional) — React integration
 

@@ -216,6 +216,16 @@ export function destroyAllPoolAgents(): void {
 /**
  * Attaches an abort listener to destroy underlying sockets on aborted fetch calls,
  * preventing socket / file descriptor leakage (Issue #359).
+ *
+ * This is a manual, opt-in utility. The SDK's own request paths (`fetchWithTimeout`,
+ * `createApiHttpClient` and the Node agent factories) do not call it: `fetch` does not
+ * expose the underlying socket, and the agents do not hand out per-request sockets.
+ * Callers that hold a Node `ClientRequest` or socket and want abort-driven cleanup
+ * must wire it up themselves.
+ *
+ * @param socketOrReq - Object exposing `destroy()` or a `socket` with `destroy()`
+ * @param signal - Abort signal to listen on; without one, nothing is attached
+ * @returns A function that removes the abort listener
  */
 export function trackAndDestroyOnAbort(
   socketOrReq: { destroy?: () => void; socket?: { destroy?: () => void } },
