@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Issue #634: createEscrow rejects a supplied deadline/expiresAt with VALIDATION_ERROR instead of silently dropping it
+- Issue #638: maxStoredSalts: 0 retains no salts; negative, non-integer and NaN values are rejected
+- Issue #639: IPFSStorage encrypt/decrypt resolves Node crypto without relying on a bundler require shim
+- Issue #640: CONTRACT_BINDINGS states that unsupported spec entries throw, not skipped
+
 ### Fixed
 
 - Issue #620: Enforced the documented `maxJsonLength` limit in `validateRequestSize` so the configured and default JSON string-length limits reject oversized bodies before the UTF-8 byte-size check.
