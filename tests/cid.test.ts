@@ -12,7 +12,7 @@ import { TrustFlowError } from '../src/errors';
 function encodeBase58(bytes: Uint8Array): string {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   const digits = [0];
-  
+
   for (let i = 0; i < bytes.length; i++) {
     let carry = bytes[i];
     for (let j = 0; j < digits.length; j++) {
@@ -25,12 +25,12 @@ function encodeBase58(bytes: Uint8Array): string {
       carry = (carry / 58) | 0;
     }
   }
-  
+
   // Add leading zeros
   for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
     digits.push(0);
   }
-  
+
   return digits.reverse().map(d => alphabet[d]).join('');
 }
 
@@ -39,7 +39,7 @@ describe('CID validation utilities (#233, #445)', () => {
   const validV0Another = 'QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco';
   const validV1Base32 = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi';
   const validV1Base58 = 'zdj7Wn9FqaYvNfm9Zkp4eH84V33b2tNn918k6Qd2d2Ld2F1bA';
-  
+
   // #445: Garbage CIDv1 base58btc with 41 bytes of 0xFF padding (invalid multihash)
   const garbageV1Base58 = 'zSSX8YzB3JHrjo6vdi3AMoi7zpc8f6DcGxmYpb6oWXDAsGJ2sQSQ7UGE';
 
@@ -66,6 +66,21 @@ describe('CID validation utilities (#233, #445)', () => {
       expect(isValidCid('')).toBe(false);
       expect(isValidCid('not-a-cid')).toBe(false);
       expect(isValidCid(123 as any)).toBe(false);
+    });
+
+    describe('Boundary Tests', () => {
+      it('rejects 49-char CIDv1 base32 as too short (#625)', () => {
+        // Construct a 49-char string: b + 48 valid base32 chars (all 'a')
+        const tooShort = 'b' + 'a'.repeat(48);
+        expect(tooShort.length).toBe(49);
+        expect(isValidCid(tooShort)).toBe(false); // Rejected by length check
+      });
+
+      it('accepts 50-char CIDv1 base32 if structurally valid (#625)', () => {
+        // Use the known valid CIDv1 base32 which is at least 50 chars
+        expect(isValidCid(validV1Base32)).toBe(true);
+        expect(validV1Base32.length).toBeGreaterThanOrEqual(50);
+      });
     });
 
     describe('#445: base58btc structural validation', () => {
@@ -109,7 +124,7 @@ describe('CID validation utilities (#233, #445)', () => {
     it('enforces the same structural checks in both branches', () => {
       // Both branches should reject CIDs with invalid multihash structures
       // The base32 branch was already correct; base58btc now matches it
-      
+
       // Test with various malformed structures
       const tests = [
         { desc: 'garbage payload', cid: garbageV1Base58, expected: false },
@@ -134,15 +149,15 @@ describe('CID validation utilities (#233, #445)', () => {
         const randomLength = 10 + Math.floor(Math.random() * 30);
         const bytes = new Uint8Array(randomLength);
         bytes[0] = 0x01; // CIDv1 version byte
-        
+
         // Fill rest with random bytes
         for (let j = 1; j < randomLength; j++) {
           bytes[j] = Math.floor(Math.random() * 256);
         }
-        
+
         const encoded = encodeBase58(bytes);
         const cid = 'z' + encoded;
-        
+
         // Most random payloads should fail validation
         // (valid multicodec varint + valid multihash structure is rare)
         if (!isValidCid(cid)) {
@@ -163,10 +178,10 @@ describe('CID validation utilities (#233, #445)', () => {
         0x20, // length: 32 bytes (correct for sha2-256)
         ...new Array(32).fill(0xAB), // 32 bytes of 0xAB as digest
       ]);
-      
+
       const encoded = encodeBase58(bytes);
       const cid = 'z' + encoded;
-      
+
       // This should pass validation
       expect(isValidCid(cid)).toBe(true);
     });
