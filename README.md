@@ -450,7 +450,7 @@ The SDK is under active development. Here's what's coming:
 - [x] Tsup bundler configuration for ESM/CJS exports
 - [x] NPM publishing pipeline with provenance
 - [x] Simulation wrappers for transaction cost estimation (`TransactionPipeline`)
-- [x] Auto-retry logic for backend API endpoints (`axios-retry`)
+- [x] Auto-retry logic for backend API endpoints
 
 ### Planned Features
 - [x] Multi-signature support for corporate escrows

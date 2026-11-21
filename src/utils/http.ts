@@ -70,10 +70,11 @@ export interface ApiHttpClientOptions {
   /** Request/response interceptor hooks applied to every call made by this client. */
   interceptors?: HttpInterceptors;
   /**
-   * Client-side size limit for JSON request bodies, checked before the request
+   * Client-side size limits for JSON request bodies, checked before the request
    * is sent. An oversized body rejects with a `VALIDATION_ERROR` and no network
-   * call is made. Defaults to 10MB; see {@link RequestValidationConfig}.
-   * Binary and form bodies (such as IPFS uploads) are not measured.
+   * call is made. `maxRequestSizeBytes` defaults to 10MB and `maxJsonLength`
+   * defaults to 5MB; see {@link RequestValidationConfig}. Binary and form bodies
+   * (such as IPFS uploads) are not measured.
    */
   requestValidation?: RequestValidationConfig;
 }

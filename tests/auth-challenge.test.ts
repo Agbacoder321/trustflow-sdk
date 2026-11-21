@@ -225,10 +225,53 @@ describe('signMessageWithKeypair', () => {
 });
 
 describe('signMessageWithFreighter', () => {
-    // These tests require complex module mocking for the freighter module.
-    // The core logic is tested via the authenticateWithWallet tests which mock
-    // the wallet adapter directly. These are marked as skipped for now.
-    it.skip('calls freighter.signMessage and returns signature', () => {});
-    it.skip('throws UNAUTHORIZED when freighter is not available', () => {});
-    it.skip('throws SIGNING_ERROR when freighter.signMessage fails', () => {});
+    function installFreighter(provider: Record<string, unknown>): void {
+        (globalThis as any).window = { freighter: provider };
+    }
+
+    afterEach(() => {
+        delete (globalThis as any).window;
+    });
+
+    it('calls freighter.signMessage and returns signature', async () => {
+        const signMessage = jest.fn().mockResolvedValue('freighter-signature');
+        installFreighter({ signMessage });
+
+        await expect(signMessageWithFreighter('hello world')).resolves.toBe('freighter-signature');
+        expect(signMessage).toHaveBeenCalledTimes(1);
+        expect(signMessage).toHaveBeenCalledWith('hello world');
+    });
+
+    it('throws UNAUTHORIZED when freighter is not available', async () => {
+        // Under the node test environment `window` is undefined, so getFreighter() returns null.
+        delete (globalThis as any).window;
+
+        const promise = signMessageWithFreighter('hello world');
+
+        await expect(promise).rejects.toBeInstanceOf(TrustFlowError);
+        await expect(promise).rejects.toMatchObject({
+            code: 'UNAUTHORIZED',
+            message: 'Freighter wallet not available',
+        });
+    });
+
+    it('throws UNAUTHORIZED when window exists but window.freighter is absent', async () => {
+        (globalThis as any).window = {};
+
+        await expect(signMessageWithFreighter('hello world')).rejects.toMatchObject({
+            code: 'UNAUTHORIZED',
+        });
+    });
+
+    it('throws SIGNING_ERROR when freighter.signMessage fails', async () => {
+        installFreighter({ signMessage: jest.fn().mockRejectedValue(new Error('user rejected')) });
+
+        const promise = signMessageWithFreighter('hello world');
+
+        await expect(promise).rejects.toBeInstanceOf(TrustFlowError);
+        await expect(promise).rejects.toMatchObject({
+            code: 'SIGNING_ERROR',
+            message: 'Signing failed: user rejected',
+        });
+    });
 });

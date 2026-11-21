@@ -1021,10 +1021,10 @@ Fetches and manages a user's profile from the backend API:
 ```typescript
 const { loading, error, vote, createVoteCommitment, revealVote } = useJuror(jurorClient);
 ```
-Provides juror operations with managed `loading` and `error` state:
+Provides juror operations with managed `error` state. `loading` tracks only the asynchronous `vote()` call:
 - `vote(params)` — casts a plaintext or encrypted vote on a dispute
-- `createVoteCommitment(voteForDepositor, salt?)` — generates a 32-byte salt commitment for commit-reveal voting
-- `revealVote(voteForDepositor, salt)` — verifies and creates a reveal payload matching contract preimage requirements
+- `createVoteCommitment(voteForDepositor, salt?)` — generates a 32-byte salt commitment for commit-reveal voting; the client call is synchronous, so `loading` never becomes true
+- `revealVote(voteForDepositor, salt)` — verifies and creates a reveal payload matching contract preimage requirements; also synchronous with respect to `loading`
 
 ## Node Connection Pooling (`@trustflow/sdk/node`)
 

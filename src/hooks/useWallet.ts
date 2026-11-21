@@ -7,6 +7,10 @@ import { clearAllSessions } from '../auth/session';
 /**
  * React hook for managing wallet connection lifecycle, handling rejections gracefully,
  * and enabling instant retries without requiring a page reload.
+ *
+ * Overlapping `connect()` calls are latest-call-wins: a call that has been
+ * superseded never updates `wallet`, `loading`, `error`, or `isRejected`, though
+ * its own promise still resolves or rejects with its original result.
  */
 export function useWallet() {
   const [wallet, setWallet] = useState<WalletConnection | null>(null);
@@ -14,6 +18,7 @@ export function useWallet() {
   const [error, setError] = useState<string | null>(null);
   const [isRejected, setIsRejected] = useState(false);
   const lastTypeRef = useRef<WalletType>('freighter');
+  const callIdRef = useRef(0);
 
   const reset = useCallback(() => {
     setError(null);
@@ -21,24 +26,31 @@ export function useWallet() {
   }, []);
 
   const connect = useCallback(async (type: WalletType = 'freighter') => {
+    const callId = ++callIdRef.current;
     lastTypeRef.current = type;
     setLoading(true);
     setError(null);
     setIsRejected(false);
     try {
       const w = await connectWallet(type);
-      setWallet(w);
-      setIsRejected(false);
+      if (callId === callIdRef.current) {
+        setWallet(w);
+        setIsRejected(false);
+      }
       return w;
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
-      if (isWalletRejection(e)) {
-        setIsRejected(true);
+      if (callId === callIdRef.current) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        if (isWalletRejection(e)) {
+          setIsRejected(true);
+        }
       }
       throw e;
     } finally {
-      setLoading(false);
+      if (callId === callIdRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 

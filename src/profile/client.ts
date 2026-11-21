@@ -6,11 +6,13 @@ import { createApiHttpClient, toApiErrorMessage } from '../utils/http';
 import type { ApiRetryConfig } from '../utils/http';
 import type { HttpInterceptors } from '../utils/interceptors';
 import { TrustFlowError } from '../errors';
+import { isValidCid } from '../storage/cid';
 
 function isValidUrlOrIpfs(url: string): boolean {
   if (!url || typeof url !== 'string') return false;
   if (url.startsWith('ipfs://')) {
-    return url.length > 7;
+    const [cid, ...rest] = url.slice('ipfs://'.length).split(/[/?#]/);
+    return isValidCid(cid) && !rest.some((part) => part === '..' || part.includes('\\'));
   }
   try {
     const parsed = new URL(url);

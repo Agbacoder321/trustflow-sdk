@@ -158,6 +158,8 @@ export function buildVoteArgs(
   jurorAddress: string,
   vote: VotePayload,
 ): unknown[] {
+  assertEscrowId(disputeId);
+  assertStellarAddress(jurorAddress, 'jurorAddress');
   const voteScVal = vote.encrypted
     ? nativeToScVal(Buffer.from(vote.ciphertext, 'base64'), { type: 'bytes' })
     : nativeToScVal(vote.choice, { type: 'symbol' });

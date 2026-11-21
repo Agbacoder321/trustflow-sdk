@@ -8,6 +8,7 @@ import type {
   VoteCommitment,
   RevealVoteResult,
 } from '../src/types/juror';
+import type { SDKResult } from '../src/types/index';
 
 function makeJurorClient(overrides: Partial<JurorClient> = {}): JurorClient {
   return {
@@ -184,9 +185,9 @@ describe('useJuror', () => {
       const { result } = renderHook(() => useJuror(client));
 
       await act(async () => {
-        await expect(
-          result.current.createVoteCommitment(true, new Uint8Array(10)),
-        ).rejects.toThrow('Salt must be exactly 32 bytes');
+        await expect(result.current.createVoteCommitment(true, new Uint8Array(10))).rejects.toThrow(
+          'Salt must be exactly 32 bytes',
+        );
       });
 
       expect(result.current.loading).toBe(false);
@@ -229,13 +230,96 @@ describe('useJuror', () => {
       const { result } = renderHook(() => useJuror(client));
 
       await act(async () => {
-        await expect(
-          result.current.revealVote(true, new Uint8Array(16)),
-        ).rejects.toThrow('Salt must be exactly 32 bytes');
+        await expect(result.current.revealVote(true, new Uint8Array(16))).rejects.toThrow(
+          'Salt must be exactly 32 bytes',
+        );
       });
 
       expect(result.current.loading).toBe(false);
       expect(result.current.error).toBe('Salt must be exactly 32 bytes');
+    });
+  });
+
+  describe('synchronous helpers and loading (#622)', () => {
+    const commitment: VoteCommitment = {
+      commitment: new Uint8Array(32),
+      salt: new Uint8Array(32),
+      commitmentHex: 'aabbcc',
+      saltHex: '112233',
+      ciphertext: 'base64ciphertext',
+      voteForDepositor: true,
+    };
+    const reveal: RevealVoteResult = {
+      voteForDepositor: true,
+      voteByte: 1,
+      salt: new Uint8Array(32),
+      saltHex: '112233',
+      commitment: new Uint8Array(32),
+      commitmentHex: 'aabbcc',
+    };
+
+    it('never renders loading=true for the synchronous helpers', async () => {
+      const client = makeJurorClient({
+        createVoteCommitment: jest.fn().mockReturnValue(commitment),
+        revealVote: jest.fn().mockReturnValue(reveal),
+      });
+      const observed: boolean[] = [];
+      const { result } = renderHook(() => {
+        const hook = useJuror(client);
+        observed.push(hook.loading);
+        return hook;
+      });
+
+      await act(async () => {
+        await result.current.createVoteCommitment(true);
+        await result.current.revealVote(true, new Uint8Array(32));
+      });
+
+      expect(observed.length).toBeGreaterThan(0);
+      expect(observed.every((value) => value === false)).toBe(true);
+      expect(result.current.loading).toBe(false);
+    });
+
+    it('does not clear an in-flight vote loading state when a synchronous helper runs', async () => {
+      let resolveVote: (value: unknown) => void = () => undefined;
+      const client = makeJurorClient({
+        vote: jest.fn().mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              resolveVote = resolve;
+            }),
+        ),
+        createVoteCommitment: jest.fn().mockReturnValue(commitment),
+      });
+      const { result } = renderHook(() => useJuror(client));
+      const params: CastVoteParams = {
+        disputeId: 'dsp-1',
+        jurorAddress: 'GJUROR',
+        vote: { encrypted: false, choice: 'approve' },
+      };
+
+      let pending: Promise<SDKResult<CastVoteResult>>;
+      act(() => {
+        pending = result.current.vote(params);
+      });
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        await result.current.createVoteCommitment(true);
+      });
+      expect(result.current.loading).toBe(true);
+
+      const voteResult: CastVoteResult = {
+        txHash: 'tx-123',
+        disputeId: 'dsp-1',
+        jurorAddress: 'GJUROR',
+        encrypted: false,
+      };
+      await act(async () => {
+        resolveVote({ ok: true, data: voteResult });
+        await pending;
+      });
+      expect(result.current.loading).toBe(false);
     });
   });
 });

@@ -117,7 +117,11 @@ export type SubmitRevealSDKResult = SDKResult<SubmitRevealResult>;
  * Configuration options for JurorClient in-memory salt caching.
  */
 export interface JurorClientOptions {
-  /** Maximum number of salts retained before evicting the oldest entry. */
+  /**
+   * Maximum number of salts retained before evicting the oldest entry.
+   * `0` retains no salts. Must be a non-negative integer (or `Infinity` for no limit);
+   * other values make the constructor throw a `VALIDATION_ERROR` TrustFlowError.
+   */
   maxStoredSalts?: number;
   /** Lifetime of each stored salt in milliseconds; expired entries are evicted. */
   saltTtlMs?: number;

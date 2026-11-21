@@ -1,6 +1,8 @@
 import { trackAndDestroyOnAbort, destroyAllPoolAgents, registerPoolAgent } from '../src/utils/connection-pool';
 
-describe('Connection pool abort socket cleanup (Issue #359)', () => {
+// Unit-level only: trackAndDestroyOnAbort is a manual opt-in helper and is not
+// invoked by the SDK's own request paths (see Issue #655).
+describe('Connection pool abort socket cleanup, isolated helper (Issue #359)', () => {
   it('destroys underlying socket when request is aborted', () => {
     const destroyMock = jest.fn();
     const fakeSocket = { destroy: destroyMock };
