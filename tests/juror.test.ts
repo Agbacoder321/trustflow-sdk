@@ -267,6 +267,27 @@ describe('commit-reveal voting helpers (Issue #373)', () => {
       expect(jurors.getStoredSalt(c3.commitmentHex)).toBeDefined();
     });
 
+    it('retains no salts when maxStoredSalts is 0 (Issue #638)', () => {
+      const jurors = new JurorClient(CONFIG, { maxStoredSalts: 0 });
+      const commitments = [true, false, true, false].map((v) => jurors.createVoteCommitment(v));
+
+      for (const c of commitments) {
+        expect(jurors.getStoredSalt(c.commitmentHex)).toBeUndefined();
+      }
+    });
+
+    it('rejects invalid maxStoredSalts values (Issue #638)', () => {
+      expect(() => new JurorClient(CONFIG, { maxStoredSalts: -1 })).toThrow(
+        /maxStoredSalts must be a non-negative integer/,
+      );
+      expect(() => new JurorClient(CONFIG, { maxStoredSalts: 1.5 })).toThrow(
+        /maxStoredSalts must be a non-negative integer/,
+      );
+      expect(() => new JurorClient(CONFIG, { maxStoredSalts: NaN })).toThrow(
+        /maxStoredSalts must be a non-negative integer/,
+      );
+    });
+
     it('removes individual stored salt using removeStoredSalt', () => {
       const jurors = new JurorClient(CONFIG);
       const c1 = jurors.createVoteCommitment(true);

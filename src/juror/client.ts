@@ -167,7 +167,15 @@ export class JurorClient {
   constructor(
     private readonly config: ContractConfig,
     private readonly options: JurorClientOptions = {},
-  ) {}
+  ) {
+    const max = options.maxStoredSalts;
+    if (max !== undefined && !(max === Infinity || (Number.isInteger(max) && max >= 0))) {
+      throw new TrustFlowError(
+        'maxStoredSalts must be a non-negative integer (0 retains no salts)',
+        'VALIDATION_ERROR',
+      );
+    }
+  }
 
   /**
    * Lazily builds (and caches) the {@link TrustFlowClient} used to submit
@@ -194,7 +202,8 @@ export class JurorClient {
    * locally on this client instance for the subsequent reveal phase.
    *
    * Evicts expired salts if `saltTtlMs` is configured, and evicts oldest entries if
-   * `maxStoredSalts` capacity limit is exceeded.
+   * `maxStoredSalts` capacity limit is exceeded. When `maxStoredSalts` is 0,
+   * the salt is returned to the caller but not stored.
    *
    * @param voteForDepositor - true for depositor (1), false for beneficiary (0)
    * @param salt - Optional 32-byte salt; generated automatically if omitted
@@ -211,6 +220,11 @@ export class JurorClient {
           this.storedSalts.delete(k);
         }
       }
+    }
+
+    if (this.options.maxStoredSalts === 0) {
+      // Retain nothing: a limit of 0 means no salt may be kept.
+      return commitment;
     }
 
     if (
