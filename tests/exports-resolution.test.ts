@@ -101,7 +101,7 @@ describe('package exports map (#100)', () => {
       const { generateTypeScriptBindings } = require('../src');
       const out = generateTypeScriptBindings([]);
       expect(out).toContain(
-        "import { AbstractContractClient, TrustFlowClient, SignAndSubmitFn, ContractCallResult, SimulationResult } from '@trustflow/sdk';",
+        "import { SorobanContractClient, TrustFlowClient, SignAndSubmitFn, ContractCallResult, SimulationResult } from '@trustflow/sdk';",
       );
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const sdk = require('../src');

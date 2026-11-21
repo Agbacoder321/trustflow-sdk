@@ -1,6 +1,6 @@
 import { rpc, Contract, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
 import type { TrustFlowClient } from '../client';
-import type { ContractCallResult } from '../types/contract';
+import type { ContractCallResult, ContractErrorKind } from '../types/contract';
 import { TrustFlowError } from '../errors';
 import type { AccountOptions } from '../accounts/types';
 import { withTransientRetry } from '../utils/node-retry';
@@ -10,6 +10,24 @@ import type { ReadContractStateOptions } from './read';
 import { simulateTransaction } from './simulation';
 
 export type SignAndSubmitFn = (xdr: string) => Promise<string>;
+
+/**
+ * Classifies a simulation error message (#732). A host budget or resource
+ * limit (`Error(Budget, ExceededLimit)`) is `resource_limit`; a contract panic
+ * or contract error (`Error(Contract, #n)`, `Error(WasmVm, ...)`) is
+ * `contract`; anything else is `unknown`.
+ *
+ * @param message - The simulation's error string
+ * @returns The failure class
+ */
+export function classifySimulationError(message: string | undefined): ContractErrorKind {
+  if (!message) return 'unknown';
+  if (/Error\(Budget|ExceededLimit|resource limit/i.test(message)) return 'resource_limit';
+  if (/Error\(Contract|Error\(WasmVm|UnreachableCodeReached|panic/i.test(message)) {
+    return 'contract';
+  }
+  return 'unknown';
+}
 
 /** Per-call account and retry overrides for {@link invokeContract}. */
 export interface InvokeContractOptions extends AccountOptions {
@@ -118,6 +136,7 @@ export async function invokeContract(
       return {
         success: false,
         error: simulation.error,
+        errorKind: classifySimulationError(simulation.error),
       };
     }
 

@@ -51,4 +51,15 @@ export interface ContractCallResult {
    * parsing `error`. Distinct from the numeric contract-level `errorCode`.
    */
   code?: TrustFlowErrorCode;
+  /**
+   * Why a failed simulation failed (#732), so callers can decide whether to
+   * retry: `resource_limit` when a host budget or resource limit was exceeded
+   * (may succeed with more resources), `contract` for a contract panic or
+   * `Error(Contract, #n)` (retrying will not help), `unknown` otherwise.
+   * Set only when the simulation itself failed.
+   */
+  errorKind?: ContractErrorKind;
 }
+
+/** Failure class reported in {@link ContractCallResult.errorKind}. */
+export type ContractErrorKind = 'contract' | 'resource_limit' | 'unknown';

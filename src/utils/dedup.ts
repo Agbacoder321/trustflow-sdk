@@ -47,27 +47,31 @@ export class RequestDeduplicator {
       }
     }
 
-    const existing = this.inFlight.get(key);
+    // `skipCache` asks for the latest value (#733): an in-flight request may
+    // have started before the caller's write, so start a fresh one instead.
+    const existing = options?.skipCache ? undefined : this.inFlight.get(key);
     if (existing) {
       return existing as Promise<T>;
     }
 
     const promise = (async () => {
-      try {
-        const result = await factory();
-        if (options?.ttlMs && options.ttlMs > 0) {
-          this.resolvedCache.set(key, {
-            value: result,
-            expiresAt: Date.now() + options.ttlMs,
-          });
-        }
-        return result;
-      } finally {
-        this.inFlight.delete(key);
+      const result = await factory();
+      if (options?.ttlMs && options.ttlMs > 0) {
+        this.resolvedCache.set(key, {
+          value: result,
+          expiresAt: Date.now() + options.ttlMs,
+        });
       }
+      return result;
     })();
 
     this.inFlight.set(key, promise);
+    // Only clear the slot this call owns, so a fresh skipCache request is not
+    // evicted when an older request for the same key settles.
+    const cleanup = () => {
+      if (this.inFlight.get(key) === promise) this.inFlight.delete(key);
+    };
+    void promise.then(cleanup, cleanup);
     return promise;
   }
 
