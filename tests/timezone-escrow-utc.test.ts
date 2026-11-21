@@ -186,5 +186,29 @@ describe('Timezone and UTC deadline handling - Issue #358', () => {
       });
       expect(mockInvoke).not.toHaveBeenCalled();
     });
+
+    it('rejects a future deadline/expiresAt instead of dropping it from the create_escrow call', async () => {
+      const futureDate = new Date(Date.now() + 86400 * 1000); // 1 day future
+      await expect(
+        createEscrow(client, {
+          sender: SENDER,
+          recipient: RECIPIENT,
+          amountStroops: ESCROW_MIN_AMOUNT_STROOPS,
+          deadline: futureDate,
+        }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', field: 'deadline' });
+
+      await expect(
+        createEscrow(client, {
+          sender: SENDER,
+          recipient: RECIPIENT,
+          amountStroops: ESCROW_MIN_AMOUNT_STROOPS,
+          expiresAt: futureDate,
+        }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', field: 'expiresAt' });
+
+      // Nothing reaches the contract, so no create_escrow argument can silently omit the deadline.
+      expect(mockInvoke).not.toHaveBeenCalled();
+    });
   });
 });
