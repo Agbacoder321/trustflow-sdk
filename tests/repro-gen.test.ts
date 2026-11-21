@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { xdr } from '@stellar/stellar-sdk';
 import { generateTypeScriptBindings } from '../src/contract/bindings';
 
@@ -50,7 +48,7 @@ function fnEntry(
   );
 }
 
-it('repro: generate code for a struct + two functions', () => {
+it('generates a Gen class with configure/batch methods and a typed Config struct', () => {
   const specEntries = [
     structEntry('Config', [
       { name: 'base_fee', type: t.i128() },
@@ -62,8 +60,12 @@ it('repro: generate code for a struct + two functions', () => {
   ];
 
   const code = generateTypeScriptBindings(specEntries, { className: 'Gen' });
-  const outDir = path.join(require("os").tmpdir(), "opencode");
-  fs.mkdirSync(outDir, { recursive: true });
-  fs.writeFileSync(path.join(outDir, "gen.ts"), code);
-  console.log(code);
+
+  expect(code).toContain('export class Gen');
+  expect(code).toMatch(/\bconfigure\s*\(/);
+  expect(code).toMatch(/\bbatch\s*\(/);
+  expect(code).toMatch(/(interface|type|class)\s+Config\b/);
+  expect(code).toMatch(/base_fee\s*:\s*bigint/);
+  expect(code).toMatch(/weights\s*:\s*Map</);
+  expect(code).toMatch(/stages\s*:\s*(Array<|\w+\[\])/);
 });

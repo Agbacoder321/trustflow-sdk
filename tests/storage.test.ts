@@ -309,3 +309,43 @@ describe('IPFSStorage encryption', () => {
     );
   });
 });
+
+describe('IPFSStorage encryption - Node crypto resolution (issue #639)', () => {
+  // Node's ESM loader does not define a global `require`, and the ESM build
+  // is emitted with platform 'neutral', so the Node crypto module must be
+  // resolved without relying on `require`. `process.getBuiltinModule` is the
+  // synchronous, require-free route. Jest's module wrapper always provides
+  // `require`, so this test forces the path by stubbing getBuiltinModule and
+  // asserting it is the resolver actually used.
+  const proc = process as unknown as { getBuiltinModule?: (id: string) => unknown };
+  const originalGetBuiltinModule = proc.getBuiltinModule;
+
+  afterEach(() => {
+    proc.getBuiltinModule = originalGetBuiltinModule;
+  });
+
+  it('resolves Node crypto via process.getBuiltinModule without a require global', () => {
+    const realCrypto = jest.requireActual('crypto');
+    const getBuiltinModule = jest.fn((id: string) =>
+      id === 'crypto' ? realCrypto : undefined,
+    );
+    proc.getBuiltinModule = getBuiltinModule;
+
+    const storage = new IPFSStorage();
+    const key = Buffer.alloc(32, 7);
+    const encrypted = storage.encrypt('esm payload', key);
+
+    expect(getBuiltinModule).toHaveBeenCalledWith('crypto');
+    expect(storage.decrypt(encrypted, key).toString()).toBe('esm payload');
+  });
+
+  it('still round-trips when getBuiltinModule is unavailable (older Node CJS)', () => {
+    proc.getBuiltinModule = undefined;
+
+    const storage = new IPFSStorage();
+    const key = Buffer.alloc(32, 9);
+    const encrypted = storage.encrypt('cjs payload', key);
+
+    expect(storage.decrypt(encrypted, key).toString()).toBe('cjs payload');
+  });
+});

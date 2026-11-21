@@ -1,7 +1,8 @@
-import { rpc, Transaction, scValToNative } from '@stellar/stellar-sdk';
+import { rpc, Transaction, scValToNative, type xdr } from '@stellar/stellar-sdk';
 import { TrustFlowError } from '../errors';
 import { withTransientRetry } from '../utils/node-retry';
 import { describeError, logger } from '../utils/logger';
+import { markTransient } from '../utils/transient';
 import type { ReadContractStateOptions } from './read';
 import type { ApiRetryConfig } from '../utils/http';
 
@@ -16,7 +17,13 @@ import type { ApiRetryConfig } from '../utils/http';
 export interface SimulationOutcome {
   success: boolean;
   cost: { cpuInsns: string; memBytes: string };
+  /** The return value decoded to native JS with the untyped `scValToNative`. */
   returnValue?: unknown;
+  /**
+   * The undecoded return value, for callers that decode it against a contract
+   * spec (`SorobanContractClient`) instead of with `scValToNative` (#579).
+   */
+  rawReturnValue?: xdr.ScVal;
   error?: string;
   /** True when the simulation needs expired ledger entries restored before it can succeed. */
   needsRestore?: boolean;
@@ -66,7 +73,16 @@ export async function simulateTransaction(
 ): Promise<SimulationOutcome> {
   try {
     const result = await withTransientRetry(
-      () => server.simulateTransaction(tx),
+      async () => {
+        const result = await server.simulateTransaction(tx);
+        // Public RPC gateways sometimes return this as a simulation error
+        // response instead of an HTTP 503. It is a gateway failure, not a
+        // contract verdict, so let the existing bounded retry policy handle it.
+        if (rpc.Api.isSimulationError(result) && /no healthy upstream/i.test(result.error)) {
+          throw markTransient(new Error(result.error));
+        }
+        return result;
+      },
       { ...options.retry, timeoutMs: options.timeoutMs },
       retryConfig,
       'rpc.simulateTransaction',
@@ -106,6 +122,7 @@ export async function simulateTransaction(
         memBytes: String(cost.memBytes ?? '0'),
       },
       returnValue: retval ? scValToNative(retval) : undefined,
+      rawReturnValue: retval,
       minResourceFee: result.minResourceFee,
       transactionData: result.transactionData,
       response: result,

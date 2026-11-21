@@ -25,14 +25,14 @@ and user-defined types. The SDK **does not fetch the spec from the network**; yo
 | object with `toXDR()` | serialised and parsed (an entry from a second copy of `@stellar/stellar-sdk`) |
 
 Anything else, or an item that cannot be decoded, throws a `TrustFlowError` (`INVALID_CONTRACT_CALL`)
-naming the item's index rather than being skipped.
+naming the item's index. This matches `SorobanSpec.parseEntry` in `src/contract/spec.ts`; if one changes,
+update the other.
 
 Each array item must be exactly **one** spec entry. A compiled contract embeds its spec in the
 `contractspecv0` custom section of the WASM file, and that raw section is a concatenation of entries,
 so it has to be split into one entry per array item before it is passed in. Stellar tooling can produce
 entries for you (for example the `contract.Spec` helper in `@stellar/stellar-sdk`, or the Stellar CLI's
-spec/bindings output); check what your installed version offers. Any other item type in the array is
-silently skipped.
+spec/bindings output); check what your installed version offers.
 
 ## 2. Creating a binding and calling it
 
@@ -157,7 +157,7 @@ or for a contract spec that declares the same struct field twice.
 
 | | Account used | Submits? | Returns |
 | --- | --- | --- | --- |
-| `read_*` / `binding.read(name, args?)` | a placeholder account | never | the decoded native value; throws `TrustFlowError` `SIMULATION_ERROR` if the simulation fails |
+| `read_*` / `binding.read(name, args?)` | a placeholder account | never | the return value decoded against the contract spec (see `result` below); throws `TrustFlowError` `SIMULATION_ERROR` if the simulation fails |
 | `simulate_*` / `binding.simulate(name, args?)` | none | never | `SimulationResult`: `{ success, cost, returnValue?, error? }` |
 | `invoke` / `methods.foo_bar` | the `caller` account, loaded from the network | only when `signAndSubmit` is given | `ContractCallResult & { result }` |
 
@@ -175,7 +175,11 @@ or for a contract spec that declares the same struct field twice.
   `{ success: false, error }`. When that error is a `TrustFlowError`, `code` carries its typed code, such
   as `TIMEOUT` or `ACCOUNT_NOT_FOUND`, so you can branch on it without parsing `error`. Argument encoding
   errors are the exception: they are thrown by `invoke` before the call is made.
-- `result` is `decodeReturnValue(...)` of `returnValue`, and is `undefined` when there is no return value.
+- `result` is `decodeReturnValue(...)` of `rawReturnValue`, the undecoded `ScVal` the simulation
+  returned, so enums, unions (`{ tag, values }`), `Result` outputs (`{ ok }` / `{ error }`) and structs
+  follow the spec. `returnValue` stays the untyped `scValToNative` decode. `result` is `undefined` when
+  the method returns void. If the value does not match the spec, `result` falls back to `returnValue`
+  and a warning is logged, so a submitted call never loses its `txHash`.
 
 `simulate_*` encodes the arguments, joins their base64 XDR strings and passes them to
 `simulateContractCall`; the returned `cost` values are currently placeholders (`'0'`). Verify this

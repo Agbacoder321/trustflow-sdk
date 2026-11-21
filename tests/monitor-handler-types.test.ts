@@ -8,11 +8,11 @@ import { join } from 'node:path';
  * (#287).
  *
  * `ts-jest` runs with `isolatedModules`, so it transpiles without type-checking:
- * `@ts-expect-error` in a normal `.test.ts` would assert nothing at all, and
- * `npm run typecheck:tests` is currently blocked by a syntax error in
- * `src/contract/read.ts` that is unrelated to this file. So the type test runs
- * here instead, over a fixture whose import graph (7 modules) deliberately
- * avoids `src/contract/*`.
+ * `@ts-expect-error` in a normal `.test.ts` would assert nothing at all. So the
+ * type test runs here instead, by invoking the compiler over a fixture whose
+ * import graph (7 modules) is kept deliberately small, so the check stays
+ * focused and fast and is not affected by unrelated modules such as
+ * `src/contract/*`.
  *
  * Only diagnostics reported *in the fixture* fail the test: every one of them
  * means a line the fixture expects to be an error stopped being one, or a line

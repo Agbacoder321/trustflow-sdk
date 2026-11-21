@@ -1,84 +1,18 @@
-# TrustFlow React Hooks Sandbox
+# Wallet session example
 
-Interactive React example demonstrating integration with the TrustFlow Protocol SDK hooks (`@trustflow/sdk/react`) and the Freighter Stellar wallet.
+This Vite app uses `useWalletSession` to connect Freighter, request and sign a challenge, exchange it for a JWT, restore the stored session, refresh the token, and sign out.
 
-## Features
-
-- **Wallet Connection (`useWallet`)**: Connect and disconnect the Freighter browser extension, retrieve the active Stellar public key, and listen for account changes.
-- **Account Balance (`useBalance`)**: Fetch and display real-time XLM balances for the connected account.
-- **Escrow Operations (`useEscrow`)**: Create and release escrow contracts with configurable amounts, recipients, and asset codes.
-
-## Prerequisites
-
-1. **Freighter Wallet**: Install the [Freighter browser extension](https://www.freighter.app/).
-2. **Stellar Testnet**: Switch Freighter to the **Testnet** network and fund your account using the [Stellar Laboratory Friendbot](https://laboratory.stellar.org/#account-creator?network=test).
-3. **Node.js**: Node.js 18+ and npm.
-
-## Getting Started
-
-### 1. Install Dependencies
-
-From this directory:
+Run a TrustFlow backend that supports `GET /auth/challenge`, `POST /auth/verify`, and `POST /auth/refresh`. Then run:
 
 ```bash
-npm install
-```
-
-This installs dependencies including `@trustflow/sdk` from the root workspace (`file:../..`).
-
-### 2. Run the Development Server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-### 3. Build for Production
-
-```bash
+# From the repository root
+npm ci
 npm run build
+cd examples/react
+npm install
+VITE_TRUSTFLOW_API_URL=http://localhost:3000 npm run dev
 ```
 
-## Code Example
+Open the Vite URL, with Freighter installed and set to Testnet. Set `VITE_TRUSTFLOW_API_URL` to your backend URL if it is not local. The backend must allow requests from the Vite origin.
 
-```tsx
-import React, { useState } from 'react';
-import { useWallet, useEscrow, useBalance } from '@trustflow/sdk/react';
-
-function App() {
-  const { isConnected, address, connect, disconnect } = useWallet();
-  const { balance, loading: balanceLoading } = useBalance(address);
-  const { createEscrow, releaseEscrow, loading: escrowLoading } = useEscrow();
-
-  // Connect wallet
-  const handleConnect = async () => {
-    await connect();
-  };
-
-  // Create an escrow
-  const handleCreate = async () => {
-    await createEscrow({
-      amount: '100',
-      recipient: 'GBXYZ...',
-      assetCode: 'USDC',
-    });
-  };
-
-  return (
-    <div>
-      {!isConnected ? (
-        <button onClick={handleConnect}>Connect Wallet</button>
-      ) : (
-        <div>
-          <p>Connected: {address}</p>
-          <p>Balance: {balance} XLM</p>
-          <button onClick={disconnect}>Disconnect</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default App;
-```
+The example displays the session address and expiry, and uses `isExpiringSoon` to show a warning during the final five minutes. Refresh runs automatically sixty seconds before expiry.
