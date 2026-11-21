@@ -291,6 +291,12 @@ export interface FetchContractEventsOptions {
   startLedger?: number;
   cursor?: string;
   limit?: number;
+  /**
+   * Optional RPC topic filters (#734), e.g. `[['AAAADwAAAA...', '*']]`. They are
+   * sent with every request, including the ones that resume from a cursor
+   * after a failed poll, so a reconnected stream keeps the same filtering.
+   */
+  topics?: string[][];
 }
 
 export interface ContractEventsPage {
@@ -311,9 +317,9 @@ export async function fetchContractEvents(
   server: GetEventsRpc,
   options: FetchContractEventsOptions,
 ): Promise<ContractEventsPage> {
-  const { contractId, startLedger, cursor, limit = 100 } = options;
+  const { contractId, startLedger, cursor, limit = 100, topics } = options;
   const request: Record<string, unknown> = {
-    filters: [{ type: 'contract', contractIds: [contractId] }],
+    filters: [{ type: 'contract', contractIds: [contractId], ...(topics ? { topics } : {}) }],
     limit,
     ...(cursor ? { cursor } : startLedger !== undefined ? { startLedger } : {}),
   };

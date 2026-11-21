@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Issue #732: invokeContract sets errorKind (`contract`, `resource_limit` or `unknown`) on a failed simulation so callers can tell a contract panic from an exceeded resource limit
+- Issue #733: RequestDeduplicator with skipCache starts a fresh request instead of joining one already in flight
+- Issue #734: fetchContractEvents and createRpcEventFetcher accept topic filters and send them on every request, including ones resumed after a failed poll
+- Issue #735: generateTypeScriptBindings output extends SorobanContractClient, so the generated typed class compiles
 - Issue #634: createEscrow rejects a supplied deadline/expiresAt with VALIDATION_ERROR instead of silently dropping it
 - Issue #638: maxStoredSalts: 0 retains no salts; negative, non-integer and NaN values are rejected
 - Issue #639: IPFSStorage encrypt/decrypt resolves Node crypto without relying on a bundler require shim
