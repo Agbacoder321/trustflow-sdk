@@ -58,7 +58,7 @@ export interface Dispute {
   id: string;
   escrowId?: EscrowId;
   reason?: string;
-  status: 'open' | 'resolving' | 'resolved' | 'cancelled' | string;
+  status: 'open' | 'resolving' | 'resolved' | 'cancelled';
   evidence?: string;
   createdAt?: number | string;
   resolvedAt?: number | string;
@@ -78,7 +78,7 @@ export interface GetGigsParams {
   /** Maximum records to return per page. Capped at 100 by the backend. Defaults to 20. */
   limit?: number;
   /** Filter by escrow status (case-insensitive string or EscrowState status). */
-  status?: EscrowState['status'] | string;
+  status?: EscrowState['status'];
   /** Filter by depositor Stellar address. */
   depositor?: StellarAddress;
   /** Filter by beneficiary Stellar address. */

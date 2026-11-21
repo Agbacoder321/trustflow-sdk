@@ -97,7 +97,7 @@ export function createMockHorizonServer(options: MockHorizonServerOptions = {}) 
           balance: balanceXLM,
         },
       ],
-      incrementSequenceNumber: () => {},
+      incrementSequenceNumber: () => { },
     }),
     submitTransaction: async () => ({
       hash: txHash,
@@ -199,7 +199,15 @@ function toScValHelper(val: unknown): xdr.ScVal {
   if (val === undefined || val === null) return xdr.ScVal.scvVoid();
   if (typeof val === 'boolean') return nativeToScVal(val, { type: 'bool' });
   if (typeof val === 'string') return nativeToScVal(val, { type: 'string' });
-  if (typeof val === 'number') return nativeToScVal(val, { type: 'i32' });
+  if (typeof val === 'number') {
+    // Use i64 or i128 based on magnitude instead of always i32
+    const MIN_I32 = -2147483648;
+    const MAX_I32 = 2147483647;
+    if (val < MIN_I32 || val > MAX_I32) {
+      return nativeToScVal(val, { type: 'i128' });
+    }
+    return nativeToScVal(val, { type: 'i32' });
+  }
   if (typeof val === 'bigint') return nativeToScVal(val, { type: 'i128' });
   if (typeof val === 'object') {
     try {
@@ -388,7 +396,7 @@ export function createMockSorobanServer(options: MockSorobanServerOptions = {}):
       return {
         accountId: () => accountId,
         sequenceNumber: () => '1',
-        incrementSequenceNumber: () => {},
+        incrementSequenceNumber: () => { },
       };
     },
 

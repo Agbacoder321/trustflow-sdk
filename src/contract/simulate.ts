@@ -116,7 +116,7 @@ export async function simulateContractCall(
   try {
     const outcome: SimulationOutcome = await simulateTransaction(
       server,
-      { toEnvelope: () => ({ toXDR: () => xdr }) } as any,
+      { toXDR: () => xdr } as any,
       options,
       client.retryConfig,
     );
