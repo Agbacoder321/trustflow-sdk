@@ -14,14 +14,20 @@ import { normalizeMilestoneExpiration, validateFutureExpiration } from '../utils
  * both parties before encoding the Soroban call arguments via
  * {@link buildCreateEscrowArgs}.
  *
- * Enforces UTC Unix timestamps for deadline and milestone expiration parameters,
- * rejecting past deadlines with an `INVALID_EXPIRATION` error.
+ * Enforces UTC Unix timestamps for milestone expiration parameters, rejecting past
+ * deadlines with an `INVALID_EXPIRATION` error.
+ *
+ * The on-chain `create_escrow` function takes only `(depositor, beneficiary, amount)`
+ * and has no deadline parameter, so a top-level `deadline`/`expiresAt` cannot be
+ * enforced by the contract. Such a deadline is validated and then rejected rather
+ * than silently dropped.
  *
  * @param client - Configured {@link TrustFlowClient}
- * @param params - Escrow terms: sender, recipient, amount in stroops, duration, deadline
+ * @param params - Escrow terms: sender, recipient, amount in stroops, duration, milestones
  * @returns The newly created {@link Escrow} in {@link EscrowStatus.Pending}
- * @throws {TrustFlowError} `VALIDATION_ERROR` if `amountStroops` is below the minimum,
- *   or `INVALID_EXPIRATION` if deadline/milestone expiration is in the past
+ * @throws {TrustFlowError} `VALIDATION_ERROR` if `amountStroops` is below the minimum, or if
+ *   `deadline`/`expiresAt` is supplied (unsupported by the contract);
+ *   `INVALID_EXPIRATION` if a deadline/milestone expiration is in the past
  */
 export async function createEscrow(
   client: TrustFlowClient,
@@ -34,11 +40,15 @@ export async function createEscrow(
     throw TrustFlowError.validation('sender/recipient', 'Both addresses are required');
   }
 
-  let deadlineSeconds: number | undefined;
   const deadlineInput = params.deadline ?? params.expiresAt;
   const deadlineField = params.deadline !== undefined ? 'deadline' : 'expiresAt';
   if (deadlineInput !== undefined) {
-    deadlineSeconds = validateFutureExpiration(deadlineInput, deadlineField);
+    // Validate first so a past deadline still reports INVALID_EXPIRATION.
+    validateFutureExpiration(deadlineInput, deadlineField);
+    throw TrustFlowError.validation(
+      deadlineField,
+      `not supported: the on-chain create_escrow function has no deadline parameter, so it cannot be enforced`,
+    );
   }
 
   let normalizedMilestones: any[] | undefined;
@@ -63,8 +73,6 @@ export async function createEscrow(
     amount: params.amountStroops,
     status: EscrowStatus.Pending,
     createdAt: Date.now(),
-    expiresAt: deadlineSeconds !== undefined ? deadlineSeconds * 1000 : undefined,
-    deadline: deadlineSeconds,
     metadata: params.metadata,
     milestones: normalizedMilestones ?? params.milestones,
   };

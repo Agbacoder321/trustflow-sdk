@@ -155,38 +155,6 @@ describe('Timezone and UTC deadline handling - Issue #358', () => {
   });
 
   describe('createEscrow integration with deadline normalization', () => {
-    it('accepts future Date deadline and converts to UTC seconds', async () => {
-      const futureDate = new Date(Date.now() + 86400 * 1000); // 1 day future
-      const params: CreateEscrowParams = {
-        sender: SENDER,
-        recipient: RECIPIENT,
-        amountStroops: ESCROW_MIN_AMOUNT_STROOPS,
-        durationBlocks: 100,
-        deadline: futureDate,
-      };
-
-      const escrow = await createEscrow(client, params);
-      expect(escrow.deadline).toBe(Math.floor(futureDate.getTime() / 1000));
-      expect(mockInvoke).toHaveBeenCalledTimes(1);
-    });
-
-    it('rejects past deadline with INVALID_EXPIRATION error before contract invocation', async () => {
-      const pastDate = new Date(Date.now() - 86400 * 1000); // 1 day past
-      const params: CreateEscrowParams = {
-        sender: SENDER,
-        recipient: RECIPIENT,
-        amountStroops: ESCROW_MIN_AMOUNT_STROOPS,
-        durationBlocks: 100,
-        deadline: pastDate,
-      };
-
-      await expect(createEscrow(client, params)).rejects.toMatchObject({
-        code: 'INVALID_EXPIRATION',
-        field: 'deadline',
-      });
-      expect(mockInvoke).not.toHaveBeenCalled();
-    });
-
     it('rejects a future deadline/expiresAt instead of dropping it from the create_escrow call', async () => {
       const futureDate = new Date(Date.now() + 86400 * 1000); // 1 day future
       await expect(
@@ -208,6 +176,23 @@ describe('Timezone and UTC deadline handling - Issue #358', () => {
       ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', field: 'expiresAt' });
 
       // Nothing reaches the contract, so no create_escrow argument can silently omit the deadline.
+      expect(mockInvoke).not.toHaveBeenCalled();
+    });
+
+    it('rejects past deadline with INVALID_EXPIRATION error before contract invocation', async () => {
+      const pastDate = new Date(Date.now() - 86400 * 1000); // 1 day past
+      const params: CreateEscrowParams = {
+        sender: SENDER,
+        recipient: RECIPIENT,
+        amountStroops: ESCROW_MIN_AMOUNT_STROOPS,
+        durationBlocks: 100,
+        deadline: pastDate,
+      };
+
+      await expect(createEscrow(client, params)).rejects.toMatchObject({
+        code: 'INVALID_EXPIRATION',
+        field: 'deadline',
+      });
       expect(mockInvoke).not.toHaveBeenCalled();
     });
   });
