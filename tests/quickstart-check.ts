@@ -149,6 +149,6 @@ async function storageAndEventsExample(fileBuffer: Buffer, rawEvents: RawContrac
   await client.storage.upload(fileBuffer, { filename: 'evidence.pdf' });
   const events = parseEvents(rawEvents, client.contractId);
   const monitor = new EscrowMonitor();
-  monitor.on('escrow.released', (event) => console.log(event.escrowId));
+  monitor.on('escrow_released', (event) => console.log(event.data.escrowId));
   return events;
 }
