@@ -41,11 +41,12 @@ export const ACCOUNT_SNAPSHOT_VERSION = 1;
 export class AccountManager {
   private readonly byId = new Map<string, AccountContext>();
   /**
-   * Secondary index from address to id, so a context registered under a custom
-   * id is still reachable by its `G...` address — callers think in addresses
-   * even when the UI keyed them by id.
+   * Secondary index from address to ids, so contexts registered under custom
+   * ids remain reachable by their `G...` address — callers think in addresses
+   * even when the UI keyed them by id. When multiple ids share an address,
+   * address lookups resolve to the most recently registered id that remains.
    */
-  private readonly idByAddress = new Map<string, string>();
+  private readonly idsByAddress = new Map<string, Set<string>>();
   private readonly listeners = new Set<AccountChangeListener>();
   private readonly eventListeners = new Map<string, Set<(...args: any[]) => void>>();
   private currentActiveId: string | null = null;
@@ -199,9 +200,6 @@ export class AccountManager {
         createdAt: existing.createdAt,
         lastUsedAt: existing.lastUsedAt,
       });
-      if (existing.address !== merged.address && this.idByAddress.get(existing.address) === id) {
-        this.idByAddress.delete(existing.address);
-      }
       this.index(merged);
       this.emit({ type: 'updated', account: merged, previous: existing });
       this.activateIfRequested(id, input.activate);
@@ -476,20 +474,45 @@ export class AccountManager {
     const trimmed = ref.trim();
     const direct = this.byId.get(trimmed);
     if (direct) return direct;
-    const id = this.idByAddress.get(trimmed);
-    return id === undefined ? null : (this.byId.get(id) ?? null);
+
+    const ids = this.idsByAddress.get(trimmed);
+    if (!ids || ids.size === 0) return null;
+
+    // Set iteration preserves registration order; use the last surviving id.
+    const id = [...ids].at(-1)!;
+    return this.byId.get(id) ?? null;
   }
 
   private index(account: AccountContext): void {
+    const existing = this.byId.get(account.id);
+    if (existing && existing.address !== account.address) {
+      this.removeAddressIndex(existing.address, account.id);
+    }
+
     this.byId.set(account.id, account);
-    this.idByAddress.set(account.address, account.id);
+    let ids = this.idsByAddress.get(account.address);
+    if (!ids) {
+      ids = new Set();
+      this.idsByAddress.set(account.address, ids);
+    }
+    ids.add(account.id);
   }
 
   private unindex(id: string): void {
     const account = this.byId.get(id);
     this.byId.delete(id);
-    if (account && this.idByAddress.get(account.address) === id) {
-      this.idByAddress.delete(account.address);
+    if (account) {
+      this.removeAddressIndex(account.address, id);
+    }
+  }
+
+  private removeAddressIndex(address: string, id: string): void {
+    const ids = this.idsByAddress.get(address);
+    if (!ids) return;
+
+    ids.delete(id);
+    if (ids.size === 0) {
+      this.idsByAddress.delete(address);
     }
   }
 
