@@ -25,14 +25,14 @@ and user-defined types. The SDK **does not fetch the spec from the network**; yo
 | object with `toXDR()` | serialised and parsed (an entry from a second copy of `@stellar/stellar-sdk`) |
 
 Anything else, or an item that cannot be decoded, throws a `TrustFlowError` (`INVALID_CONTRACT_CALL`)
-naming the item's index rather than being skipped.
+naming the item's index. This matches `SorobanSpec.parseEntry` in `src/contract/spec.ts`; if one changes,
+update the other.
 
 Each array item must be exactly **one** spec entry. A compiled contract embeds its spec in the
 `contractspecv0` custom section of the WASM file, and that raw section is a concatenation of entries,
 so it has to be split into one entry per array item before it is passed in. Stellar tooling can produce
 entries for you (for example the `contract.Spec` helper in `@stellar/stellar-sdk`, or the Stellar CLI's
-spec/bindings output); check what your installed version offers. Any other item type in the array is
-silently skipped.
+spec/bindings output); check what your installed version offers.
 
 ## 2. Creating a binding and calling it
 
