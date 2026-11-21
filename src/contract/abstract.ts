@@ -3,7 +3,7 @@ import type { TrustFlowClient } from '../client';
 import type { ContractCallResult } from '../types/contract';
 import type { SimulationResult } from './simulate';
 import type { SignAndSubmitFn } from './invoke';
-import { SorobanSpec } from './spec';
+import { SorobanSpec, type SpecFunction } from './spec';
 
 /**
  * Base abstract class for Soroban type-safe contract clients and generated bindings.
@@ -40,6 +40,11 @@ export abstract class AbstractContractClient {
     this.client = client;
     this.contractId = contractId ?? client.contractId;
     this.spec = new SorobanSpec(specEntries);
+  }
+
+  /** Returns the parsed method signature, including `parameters: []` for zero-argument methods. */
+  getMethodSpec(name: string): SpecFunction | undefined {
+    return this.spec.getMethodSpec(name);
   }
 
   /**

@@ -90,6 +90,7 @@ export class TokenRefreshManager {
    * All concurrent callers share the same promise (single-flight).
    */
   private inflightRefresh: Promise<Session> | null = null;
+  private generation = 0;
 
   constructor(config: TokenRefreshConfig) {
     this.apiUrl = config.apiUrl;
@@ -243,6 +244,12 @@ export class TokenRefreshManager {
       }
 
       const newToken = response.data.token;
+      if (
+        generation !== this.generation ||
+        loadSession(this.scope)?.token !== currentSession.token
+      ) {
+        throw new TrustFlowError('Refresh cancelled because the session changed', 'AUTH_ERROR');
+      }
 
       // Derive expiry from the new JWT, falling back to the default 15-min TTL.
       const newExpMs = decodeJwtExpMs(newToken) ?? Date.now() + 15 * 60_000;
@@ -272,7 +279,9 @@ export class TokenRefreshManager {
           : new TrustFlowError('Silent token refresh failed', 'AUTH_ERROR', error);
 
       logger.error('TokenRefreshManager: refresh failed', { error: wrapped });
-      this.listener?.onRefreshError?.(wrapped);
+      // stop() invalidates the request; a cancelled refresh must not surface
+      // as a new error after sign-out or a session switch.
+      if (generation === this.generation) this.listener?.onRefreshError?.(wrapped);
       throw wrapped;
     }
   }
