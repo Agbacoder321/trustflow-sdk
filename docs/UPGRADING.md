@@ -16,6 +16,7 @@ upgrade a no-op.
 | Deprecated | Use instead | Deprecated in |
 |------------|-------------|---------------|
 | `new DisputeClient(apiUrl, token, options?)` | `new DisputeClient(config, options?)`, with `apiBaseUrl` and `apiKey` set on the `ContractConfig` | 0.2.x |
+| `new ProfileClient(apiUrl, token, options?)` | `new ProfileClient(config, options?)`, with `apiBaseUrl` and `apiKey` set on the `ContractConfig` | 0.2.x |
 | `EscrowMonitor.on(name, handler)` / `off(name, handler)` with a plain `string` name | A `TrustFlowEventType` literal, or a `MonitorEventName` value | 0.2.x |
 
 ## Upgrade guides

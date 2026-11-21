@@ -130,6 +130,8 @@ export async function invokeContract(
         success: true,
         returnValue: simulation.returnValue,
         gasUsed,
+        // Base inclusion fee plus the simulated resource fee, before submission padding (#720).
+        estimatedFeeStroops: Number(BASE_FEE) + (Number(simulation.minResourceFee) || 0),
       };
     }
 

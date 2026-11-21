@@ -10,13 +10,11 @@ import { TrustFlowError } from '../errors';
 import { randomBytes } from '../utils/crypto';
 
 /**
- * Lazily resolves Node's `crypto` module so browser bundles never see a
- * static `import ... from 'crypto'` (which forces Webpack 5 users into
- * polyfills — enforced by tests/bundler-compat.test.ts). Only the pieces
- * this module needs are typed, structurally, to avoid importing any
- * `crypto` types (type-only imports are still static imports to bundlers).
+ * Structural subset of Node's `crypto` module used by encrypt/decrypt. Only the
+ * pieces this module needs are typed, to avoid importing any `crypto` types
+ * (type-only imports are still static imports to bundlers).
  */
-function requireNodeCrypto(): {
+interface NodeCryptoLike {
   createCipheriv(
     alg: string,
     key: Uint8Array,
@@ -35,17 +33,46 @@ function requireNodeCrypto(): {
     final(): Buffer;
     setAuthTag(tag: Uint8Array): void;
   };
-} {
+}
+
+/**
+ * Synchronously resolves Node's `crypto` module so browser bundles never see a
+ * static `import ... from 'crypto'` (which forces Webpack 5 users into
+ * polyfills — enforced by tests/bundler-compat.test.ts).
+ *
+ * Resolution order:
+ *  1. `process.getBuiltinModule('crypto')` (Node 20.16+ / 22.3+). This works in
+ *     both CJS and ESM. Node's ESM loader defines no `require` global, and the
+ *     SDK's ESM build (`platform: 'neutral'`) injects no `require` shim, so a
+ *     `require`-only lookup always fails for ESM consumers (issue #639).
+ *  2. A bundler-safe `require('crypto')` for older Node CJS runtimes.
+ *
+ * Browsers provide neither, so this throws `UNSUPPORTED_ENVIRONMENT`. Neither
+ * branch contains a static or literal dynamic `import`.
+ *
+ * @throws {TrustFlowError} `UNSUPPORTED_ENVIRONMENT` when no Node crypto module can be resolved.
+ */
+function requireNodeCrypto(): NodeCryptoLike {
   const modName = 'crypto';
-  const req = typeof require !== 'undefined' ? require : undefined;
-  const nodeCrypto = req ? req(modName) : undefined;
+  const proc = (globalThis as unknown as {
+    process?: { getBuiltinModule?: (id: string) => unknown };
+  }).process;
+  let nodeCrypto: unknown;
+  if (typeof proc?.getBuiltinModule === 'function') {
+    nodeCrypto = proc.getBuiltinModule(modName);
+  }
   if (!nodeCrypto) {
+    // Indirect `require` keeps bundlers from statically resolving 'crypto'.
+    const req = typeof require !== 'undefined' ? require : undefined;
+    nodeCrypto = req ? req(modName) : undefined;
+  }
+  if (!nodeCrypto || typeof (nodeCrypto as NodeCryptoLike).createCipheriv !== 'function') {
     throw new TrustFlowError(
       'AES-256-GCM encryption/decryption requires the Node.js crypto module, which is not available in this environment',
       'UNSUPPORTED_ENVIRONMENT',
     );
   }
-  return nodeCrypto;
+  return nodeCrypto as NodeCryptoLike;
 }
 
 /** Default upload endpoint — a raw-body IPFS upload API (e.g. web3.storage-compatible). */
