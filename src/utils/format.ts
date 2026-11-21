@@ -177,6 +177,7 @@ export function formatAmount(stroops: bigint | number | string): string {
  * ```
  */
 export function truncateAddress(address: string, prefixLen = 6, suffixLen = 4): string {
+  if (suffixLen <= 0) return '';
   if (address.length <= prefixLen + suffixLen + 3) {
     return address;
   }
