@@ -1,4 +1,6 @@
 export { useWallet } from './useWallet';
+export { useWalletSession } from './useWalletSession';
+export type { UseWalletSessionOptions, WalletSessionStatus } from './useWalletSession';
 export { useBalance } from './useBalance';
 export { useTransaction } from './useTransaction';
 export { useEscrow } from './useEscrow';

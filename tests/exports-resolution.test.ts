@@ -108,5 +108,19 @@ describe('package exports map (#100)', () => {
       expect(sdk.AbstractContractClient).toBeDefined();
       expect(sdk.TrustFlowClient).toBeDefined();
     });
+
+    it('exports padResourceFee and DEFAULT_RESOURCE_FEE_MULTIPLIER from root and utils subpath (#624)', () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const sdk = require('../src');
+      expect(sdk.padResourceFee).toBeDefined();
+      expect(typeof sdk.padResourceFee).toBe('function');
+      expect(sdk.DEFAULT_RESOURCE_FEE_MULTIPLIER).toBeDefined();
+      expect(typeof sdk.DEFAULT_RESOURCE_FEE_MULTIPLIER).toBe('number');
+
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const utils = require('../src/utils');
+      expect(utils.padResourceFee).toBeDefined();
+      expect(utils.DEFAULT_RESOURCE_FEE_MULTIPLIER).toBeDefined();
+    });
   });
 });

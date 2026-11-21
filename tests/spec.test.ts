@@ -15,6 +15,12 @@ import {
 } from './support/spec-builders';
 
 describe('SorobanSpec', () => {
+  it('returns an empty parameters array for a zero-argument method', () => {
+    const spec = new SorobanSpec([functionEntry('get_version')]);
+    expect(spec.getMethodSpec('get_version')?.parameters).toEqual([]);
+    expect(spec.getMethodSpec('get_version')?.inputs).toEqual([]);
+    expect(spec.encodeArgs('get_version', [])).toEqual([]);
+  });
   const scalarCases: Array<{
     name: string;
     type: xdr.ScSpecTypeDef;

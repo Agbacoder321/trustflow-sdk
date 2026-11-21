@@ -8,7 +8,7 @@ export const CID_V0_REGEX = /^Qm[1-9A-HJ-NP-Za-km-z]{44}$/;
 /**
  * CIDv1 base32 regex: starts with multibase prefix 'b', followed by lowercase base32 (a-z, 2-7).
  */
-export const CID_V1_REGEX = /^b[a-z2-7]{48,}$/;
+export const CID_V1_REGEX = /^b[a-z2-7]{49,}$/;
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const BASE58_MAP: Record<string, number> = {};
