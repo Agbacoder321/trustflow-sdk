@@ -23,13 +23,22 @@ export class MockWalletProvider implements WalletAdapter {
   private shouldReject: boolean;
   private delayMs: number;
 
-  constructor(options: { secretKey?: string; publicKey?: string; network?: string; shouldReject?: boolean; delayMs?: number } = {}) {
+  constructor(
+    options: {
+      secretKey?: string;
+      publicKey?: string;
+      network?: string;
+      shouldReject?: boolean;
+      delayMs?: number;
+    } = {},
+  ) {
     if (options.secretKey) {
       const kp = Keypair.fromSecret(options.secretKey);
       this.publicKey = kp.publicKey();
       this.secretKey = options.secretKey;
     } else {
-      this.publicKey = options.publicKey ?? 'GAOQJGUAB7NI7K7I62ORBXMN3J4J6NBRWEINP5UX5YHMROQZ2EGE6YJQ';
+      this.publicKey =
+        options.publicKey ?? 'GAOQJGUAB7NI7K7I62ORBXMN3J4J6NBRWEINP5UX5YHMROQZ2EGE6YJQ';
     }
     this.network = options.network ?? 'TESTNET';
     this.shouldReject = options.shouldReject ?? false;
@@ -72,6 +81,15 @@ export class MockWalletProvider implements WalletAdapter {
       return tx.toXDR();
     }
     return xdr;
+  }
+
+  async signMessage(message: string): Promise<string> {
+    if (this.delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+    }
+    if (this.shouldReject) throw new Error('User rejected signature');
+    if (!this.secretKey) throw new Error('Mock wallet requires a secretKey to sign messages');
+    return Keypair.fromSecret(this.secretKey).sign(Buffer.from(message, 'utf8')).toString('base64');
   }
 
   async disconnect(): Promise<void> {

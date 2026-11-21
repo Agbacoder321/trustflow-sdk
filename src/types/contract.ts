@@ -1,3 +1,4 @@
+import type { xdr } from '@stellar/stellar-sdk';
 import type { HttpInterceptors } from '../utils/interceptors';
 import type { StellarNetwork } from '../stellar/network';
 import type { TrustFlowErrorCode } from '../errors';
@@ -27,10 +28,21 @@ export interface InvokeContractParams {
 
 export interface ContractCallResult {
   success: boolean;
+  /** The simulated return value, decoded to native JS with the untyped `scValToNative`. */
   returnValue?: unknown;
+  /**
+   * The undecoded simulated return value. `SorobanContractClient` decodes this
+   * against the contract spec to produce its typed `result` (#579).
+   */
+  rawReturnValue?: xdr.ScVal;
   txHash?: string;
   errorCode?: number;
   gasUsed?: number;
+  /**
+   * Estimated total fee in stroops for a simulation-only call: the base fee
+   * plus the simulated resource fee. Set only when no transaction was submitted.
+   */
+  estimatedFeeStroops?: number;
   /** Error message when `success` is false, describing why the call failed. */
   error?: string;
   /**

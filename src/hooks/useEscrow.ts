@@ -29,7 +29,12 @@ export function useEscrow(client: TrustFlowClient) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [escrow, setEscrow] = useState<Escrow | null>(null);
-  const callIdRef = useRef(0);
+  // One ref per operation: a stale-response guard only needs to order calls of the same kind.
+  const createCallIdRef = useRef(0);
+  const releaseCallIdRef = useRef(0);
+  const cancelCallIdRef = useRef(0);
+  const disputeCallIdRef = useRef(0);
+  const refreshCallIdRef = useRef(0);
   // Mirrors `escrow` so optimistic snapshots never read a stale closure value.
   const escrowRef = useRef<Escrow | null>(null);
 
@@ -41,7 +46,7 @@ export function useEscrow(client: TrustFlowClient) {
   const create = useCallback(
     async (params: CreateEscrowParams, options: CreateEscrowOptions = {}) => {
       const { optimistic = false, onOptimisticRollback, optimisticId } = options;
-      const callId = ++callIdRef.current;
+      const callId = ++createCallIdRef.current;
       const previous = escrowRef.current;
       setLoading(true);
       setError(null);
@@ -55,13 +60,13 @@ export function useEscrow(client: TrustFlowClient) {
       }
       try {
         const e = await createEscrow(client, params);
-        if (callId === callIdRef.current) {
+        if (callId === createCallIdRef.current) {
           commitEscrow(e);
         }
         return e;
       } catch (e: unknown) {
         const err = toError(e);
-        if (callId === callIdRef.current) {
+        if (callId === createCallIdRef.current) {
           if (optimistic) {
             commitEscrow(previous);
             onOptimisticRollback?.(err, previous);
@@ -70,7 +75,7 @@ export function useEscrow(client: TrustFlowClient) {
         }
         throw e;
       } finally {
-        if (callId === callIdRef.current) {
+        if (callId === createCallIdRef.current) {
           setLoading(false);
         }
       }
@@ -81,7 +86,7 @@ export function useEscrow(client: TrustFlowClient) {
   const release = useCallback(
     async (escrowId: string, caller: string, options: ReleaseEscrowOptions = {}) => {
       const { optimistic = false, onOptimisticRollback } = options;
-      const callId = ++callIdRef.current;
+      const callId = ++releaseCallIdRef.current;
       const previous = escrowRef.current;
       setLoading(true);
       setError(null);
@@ -91,13 +96,13 @@ export function useEscrow(client: TrustFlowClient) {
       try {
         const result = await releaseEscrow(client, { escrowId, caller });
         const current = escrowRef.current;
-        if (optimistic && current && callId === callIdRef.current) {
+        if (optimistic && current && callId === releaseCallIdRef.current) {
           commitEscrow({ ...current, pending: false } as Escrow);
         }
         return result;
       } catch (e: unknown) {
         const err = toError(e);
-        if (callId === callIdRef.current) {
+        if (callId === releaseCallIdRef.current) {
           if (optimistic) {
             commitEscrow(previous);
             onOptimisticRollback?.(err, previous);
@@ -106,7 +111,7 @@ export function useEscrow(client: TrustFlowClient) {
         }
         throw e;
       } finally {
-        if (callId === callIdRef.current) {
+        if (callId === releaseCallIdRef.current) {
           setLoading(false);
         }
       }
@@ -116,19 +121,19 @@ export function useEscrow(client: TrustFlowClient) {
 
   const cancel = useCallback(
     async (escrowId: string, caller: string) => {
-      const callId = ++callIdRef.current;
+      const callId = ++cancelCallIdRef.current;
       setLoading(true);
       setError(null);
       try {
         const result = await cancelEscrow(client, escrowId, caller);
         return result;
       } catch (e: unknown) {
-        if (callId === callIdRef.current) {
+        if (callId === cancelCallIdRef.current) {
           setError(e instanceof Error ? e.message : String(e));
         }
         throw e;
       } finally {
-        if (callId === callIdRef.current) {
+        if (callId === cancelCallIdRef.current) {
           setLoading(false);
         }
       }
@@ -138,19 +143,19 @@ export function useEscrow(client: TrustFlowClient) {
 
   const dispute = useCallback(
     async (escrowId: string, caller: string, reason: string) => {
-      const callId = ++callIdRef.current;
+      const callId = ++disputeCallIdRef.current;
       setLoading(true);
       setError(null);
       try {
         const result = await disputeEscrow(client, { escrowId, caller, reason });
         return result;
       } catch (e: unknown) {
-        if (callId === callIdRef.current) {
+        if (callId === disputeCallIdRef.current) {
           setError(e instanceof Error ? e.message : String(e));
         }
         throw e;
       } finally {
-        if (callId === callIdRef.current) {
+        if (callId === disputeCallIdRef.current) {
           setLoading(false);
         }
       }
@@ -160,22 +165,22 @@ export function useEscrow(client: TrustFlowClient) {
 
   const refresh = useCallback(
     async (escrowId: string) => {
-      const callId = ++callIdRef.current;
+      const callId = ++refreshCallIdRef.current;
       setLoading(true);
       setError(null);
       try {
         const e = (await getEscrow(client, escrowId)) as Escrow | null;
-        if (callId === callIdRef.current) {
+        if (callId === refreshCallIdRef.current) {
           commitEscrow(e);
         }
         return e;
       } catch (e: unknown) {
-        if (callId === callIdRef.current) {
+        if (callId === refreshCallIdRef.current) {
           setError(e instanceof Error ? e.message : String(e));
         }
         throw e;
       } finally {
-        if (callId === callIdRef.current) {
+        if (callId === refreshCallIdRef.current) {
           setLoading(false);
         }
       }

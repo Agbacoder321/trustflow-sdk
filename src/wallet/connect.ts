@@ -4,8 +4,8 @@ import { getFreighter } from './freighter';
 import { getAlbedo } from './albedo';
 import { TrustFlowError } from '../errors';
 
-/** Albedo names the public network `public` or `pubnet`; the SDK calls it `MAINNET`. */
-function normalizeAlbedoNetwork(name: string): string {
+/** Wallets may name the public network `public` or `pubnet`; the SDK calls it `MAINNET`. */
+function normalizeWalletNetwork(name: string): string {
   const upper = name.toUpperCase();
   return upper === 'PUBLIC' || upper === 'PUBNET' ? 'MAINNET' : upper;
 }
@@ -24,10 +24,16 @@ export async function connectWallet(type: WalletType = 'freighter'): Promise<Wal
     try {
       const publicKey = await freighter.getPublicKey();
       if (!publicKey) {
-        throw TrustFlowError.userRejected('User rejected Freighter connection');
+        // Freighter installed but no key: almost always a locked wallet (#723).
+        // Not a rejection, so it is not reported as USER_REJECTED.
+        throw new TrustFlowError(
+          'Freighter returned no public key. It may be locked: unlock Freighter and try again.',
+          'UNAUTHORIZED',
+        );
       }
-      const network = await freighter.getNetwork();
-      return { type: 'freighter', publicKey, network: network || 'TESTNET' };
+      const reportedNetwork = await freighter.getNetwork();
+      const network = reportedNetwork ? normalizeWalletNetwork(reportedNetwork) : 'TESTNET';
+      return { type: 'freighter', publicKey, network };
     } catch (e: unknown) {
       if (isWalletRejection(e)) {
         throw TrustFlowError.userRejected(
@@ -50,8 +56,8 @@ export async function connectWallet(type: WalletType = 'freighter'): Promise<Wal
       if (!res?.pubkey) {
         throw TrustFlowError.userRejected('User rejected Albedo connection');
       }
-      // Same fallback as the Freighter path when the wallet does not report a network.
-      const network = res.network ? normalizeAlbedoNetwork(res.network) : 'TESTNET';
+      // Use the same fallback as the Freighter path when the wallet does not report a network.
+      const network = res.network ? normalizeWalletNetwork(res.network) : 'TESTNET';
       return { type: 'albedo', publicKey: res.pubkey, network };
     } catch (e: unknown) {
       if (isWalletRejection(e)) {

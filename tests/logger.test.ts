@@ -72,6 +72,48 @@ describe('SDKLogger level filtering', () => {
     expect((context['nested'] as Record<string, unknown>)['safe']).toBe('ok');
   });
 
+  it('redacts secret-shaped key names (secretKey, privateKey, api_key)', () => {
+    const log = new SDKLogger({ minLevel: 'debug' });
+    log.info('signer', {
+      secretKey: 'S...',
+      privateKey: 'pk',
+      private_key: 'pk',
+      api_key: 'k',
+      apikey: 'k',
+      signingKey: 'sk',
+    });
+    const context = infoSpy.mock.calls[0][1] as Record<string, unknown>;
+    for (const field of [
+      'secretKey',
+      'privateKey',
+      'private_key',
+      'api_key',
+      'apikey',
+      'signingKey',
+    ]) {
+      expect(context[field]).toBe('[REDACTED]');
+    }
+  });
+
+  it('does not redact non-secret fields whose name merely contains "key" (#581)', () => {
+    const log = new SDKLogger({ minLevel: 'debug' });
+    const publicKey = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+    log.info('account', {
+      publicKey,
+      signerPublicKey: publicKey,
+      pubkey: publicKey,
+      destinationAccountKey: publicKey,
+      keypair: { publicKey, secretKey: 'S...' },
+    });
+    const context = infoSpy.mock.calls[0][1] as Record<string, unknown>;
+    expect(context['publicKey']).toBe(publicKey);
+    expect(context['signerPublicKey']).toBe(publicKey);
+    expect(context['pubkey']).toBe(publicKey);
+    expect(context['destinationAccountKey']).toBe(publicKey);
+    // The container is kept, but secrets nested inside it are still redacted.
+    expect(context['keypair']).toEqual({ publicKey, secretKey: '[REDACTED]' });
+  });
+
   it('emits structured JSON with timestamp/scope/message/context', () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     const log = new SDKLogger({ minLevel: 'info', json: true, prefix: 'TestScope' });

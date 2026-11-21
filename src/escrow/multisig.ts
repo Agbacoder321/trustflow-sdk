@@ -205,7 +205,11 @@ export class MultiSigEscrowClient {
       return { ok: false, error: `Operation ${operationId} not found` };
     }
 
-    if (this._isExpired(operation) && operation.status === 'pending') {
+    if (
+      this._isExpired(operation) &&
+      operation.status !== 'submitted' &&
+      operation.status !== 'expired'
+    ) {
       this._markTerminal(operation, 'expired');
     }
 
