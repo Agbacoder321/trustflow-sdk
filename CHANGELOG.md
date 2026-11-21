@@ -2,10 +2,21 @@
 
 ## [Unreleased]
 
-- Issue #732: invokeContract sets errorKind (`contract`, `resource_limit` or `unknown`) on a failed simulation so callers can tell a contract panic from an exceeded resource limit
-- Issue #733: RequestDeduplicator with skipCache starts a fresh request instead of joining one already in flight
-- Issue #734: fetchContractEvents and createRpcEventFetcher accept topic filters and send them on every request, including ones resumed after a failed poll
-- Issue #735: generateTypeScriptBindings output extends SorobanContractClient, so the generated typed class compiles
+### Logger redaction of non-secret `...Key` fields (#581)
+
+- Issue #581: `SDKLogger` no longer redacts every context field whose name contains `key`. Only secret-shaped names (`apiKey`, `api_key`, `secretKey`, `privateKey`, `signingKey`, ...) are redacted alongside `authorization`, `token`, `secret` and `password`, so public values such as `publicKey`, `pubkey` and `keypair` are logged. Secrets nested inside such objects are still redacted.
+
+### Spec-based return decoding in contract bindings (#579)
+
+- Issue #579: `SorobanContractClient.invoke()` (and every `binding.methods.*` call) no longer throws `scVal.switch is not a function` for methods with a non-void return type, and `read()` / `read_*` now decode the return value against the contract spec (unions as `{ tag, values }`, `Result` as `{ ok }` / `{ error }`) instead of silently returning the untyped `scValToNative` shape. `SimulationOutcome` and `ContractCallResult` gain an optional `rawReturnValue` carrying the undecoded `ScVal`.
+
+### Escrow lifecycle guide retry options (#578)
+
+- Issue #578: Fixed the `TrustFlowEscrowClient` snippet in `docs/guides/escrow-lifecycle.md` to use the real `ApiRetryConfig` fields (`retries`, `retryDelayMs`, `maxRetryDelayMs`).
+
+### Architecture doc lists the `/testing` entry point (#576)
+
+- Issue #576: `docs/ARCHITECTURE.md` now lists `src/testing/` in the module map and `@trustflow/sdk/testing` in the entry-points table (seven entry points), and clarifies that `/testing` is a test-only entry outside the browser-safe set.
 - Issue #634: createEscrow rejects a supplied deadline/expiresAt with VALIDATION_ERROR instead of silently dropping it
 - Issue #638: maxStoredSalts: 0 retains no salts; negative, non-integer and NaN values are rejected
 - Issue #639: IPFSStorage encrypt/decrypt resolves Node crypto without relying on a bundler require shim

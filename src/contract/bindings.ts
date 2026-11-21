@@ -4,10 +4,11 @@ import type { ContractCallResult } from '../types/contract';
 import type { SimulationResult } from './simulate';
 import type { SignAndSubmitFn } from './invoke';
 import { invokeContract } from './invoke';
-import { readContractState } from './read';
+import { simulateContractRead } from './read';
 import { simulateContractCall } from './simulate';
 import { AbstractContractClient } from './abstract';
 import { SorobanSpec } from './spec';
+import { describeError, logger } from '../utils/logger';
 
 /**
  * Concrete implementation of `AbstractContractClient` created from Soroban Spec entries.
@@ -84,8 +85,22 @@ export class SorobanContractClient extends AbstractContractClient {
     const scVals = this.encodeArgs(methodName, args);
     const result = await invokeContract(this.client, methodName, scVals, caller, signAndSubmit);
     let decoded: T | undefined = undefined;
-    if (result.success && result.returnValue) {
-      decoded = this.decodeReturnValue(methodName, result.returnValue as xdr.ScVal) as T;
+    // Decode the raw ScVal against the spec: `returnValue` is already native
+    // (`scValToNative`) and the spec decoder cannot take it (#579). A void return
+    // leaves `result` undefined.
+    const raw = result.rawReturnValue;
+    if (result.success && raw && raw.switch().name !== 'scvVoid') {
+      try {
+        decoded = this.decodeReturnValue(methodName, raw) as T;
+      } catch (e) {
+        // The call has already succeeded (and may have been submitted), so a
+        // value that does not match the spec must not discard `txHash`.
+        logger.warn('Return value does not match the contract spec', {
+          method: methodName,
+          error: describeError(e),
+        });
+        decoded = result.returnValue as T;
+      }
     }
     return {
       ...result,
@@ -104,14 +119,14 @@ export class SorobanContractClient extends AbstractContractClient {
     args: Record<string, unknown> | unknown[] = [],
   ): Promise<T> {
     const scVals = this.encodeArgs(methodName, args);
-    const rawResult = await readContractState(this.client, methodName, scVals);
-    if (rawResult && typeof rawResult === 'object' && 'result' in (rawResult as any)) {
-      const retval = (rawResult as any).result?.retval;
-      if (retval) {
-        return this.decodeReturnValue(methodName, retval as xdr.ScVal) as T;
-      }
+    const outcome = await simulateContractRead(this.client, methodName, scVals);
+    // `outcome.returnValue` is the untyped `scValToNative` decode; decode the raw
+    // ScVal against the spec instead so enums, unions, results and structs keep
+    // their spec shape (#579).
+    if (outcome.rawReturnValue) {
+      return this.decodeReturnValue(methodName, outcome.rawReturnValue) as T;
     }
-    return rawResult as T;
+    return outcome.returnValue as T;
   }
 
   /**
