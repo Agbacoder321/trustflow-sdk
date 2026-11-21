@@ -485,12 +485,17 @@ export class TrustFlowEscrowClient {
       }
       query.set('tokenAddress', params.tokenAddress);
     }
+    let createdAfterMs: number | undefined;
+    let createdBeforeMs: number | undefined;
+
     if (params.createdAfter !== undefined) {
       const dateStr = parseFilterDate(params.createdAfter);
       if (!dateStr) {
         return { ok: false, error: `Invalid createdAfter: "${String(params.createdAfter)}"` };
       }
       query.set('createdAfter', dateStr);
+      const ms = Date.parse(dateStr);
+      if (!Number.isNaN(ms)) createdAfterMs = ms;
     }
     if (params.createdBefore !== undefined) {
       const dateStr = parseFilterDate(params.createdBefore);
@@ -498,6 +503,13 @@ export class TrustFlowEscrowClient {
         return { ok: false, error: `Invalid createdBefore: "${String(params.createdBefore)}"` };
       }
       query.set('createdBefore', dateStr);
+      const ms = Date.parse(dateStr);
+      if (!Number.isNaN(ms)) createdBeforeMs = ms;
+    }
+    // An inverted date range can never match, the same mistake as an inverted
+    // amount range below (#648).
+    if (createdAfterMs !== undefined && createdBeforeMs !== undefined && createdAfterMs > createdBeforeMs) {
+      return { ok: false, error: 'createdAfter cannot be later than createdBefore' };
     }
 
     let minNum: number | undefined;
