@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Concurrent `connectWallet()` calls share one wallet prompt (#741)
+
+- Issue #741: `connectWallet()` now reuses the pending connection attempt when it is called again for the same wallet type before that attempt settles, so several components connecting on mount open one Freighter (or Albedo) prompt and all receive the same connection or error. Once the attempt settles, the next call prompts again, so retrying after a rejection still works.
+
+### Wallet guards, balance display and contract bundle size (#736, #737, #738, #739)
+
+- Issue #739: Added `formatBalance(amount, { decimals })` for showing XLM balances. Extra digits are truncated, never rounded up, and a nonzero balance below the display precision shows as `'< 0.01'` instead of `'0'`. `getBalance` already returns Horizon's full 7-decimal string; its JSDoc now says so and points to `formatBalance`.
+- Issue #738: `createFreighterAdapter({ network })` now refuses to sign, before the wallet is prompted, when the requested network is unknown, differs from the configured `network`, or differs from the network Freighter is on. Each case throws `SIGNING_ERROR`.
+- Issue #737: Added `connectWallet('freighter', { onAccountChange })`, which uses a single module-scoped `message` listener on `window`. A later `connectWallet` call replaces the listener and `disconnectWallet()` removes it, so connect/disconnect cycles leave no listeners behind.
+- Issue #736: Added the `@trustflow/sdk/contract` subpath, so apps can import contract bindings and call functions without the parser reaching every `TrustFlowClient` user. `client.createContractBinding()` is now deprecated. Added `npm run size:report` and the [bundle-size spike](docs/spikes/issue-736-contract-bundle-size.md): removing the method in the next major saves 31% (brotli) for `TrustFlowClient` users.
 ### Logger redaction of non-secret `...Key` fields (#581)
 
 - Issue #581: `SDKLogger` no longer redacts every context field whose name contains `key`. Only secret-shaped names (`apiKey`, `api_key`, `secretKey`, `privateKey`, `signingKey`, ...) are redacted alongside `authorization`, `token`, `secret` and `password`, so public values such as `publicKey`, `pubkey` and `keypair` are logged. Secrets nested inside such objects are still redacted.

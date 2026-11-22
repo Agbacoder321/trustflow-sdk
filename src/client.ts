@@ -18,7 +18,7 @@ import { AccountManager } from './accounts/manager';
 import type { AccountContext, AccountOptions, AddAccountInput } from './accounts/types';
 import { assertStellarAddress } from './utils/validation';
 import { fetchAccountInfo, type AccountInfo } from './stellar/account';
-import { NETWORK_CONFIGS } from './stellar/network';
+import { NETWORK_CONFIGS, rpcUrlMatchesPassphrase } from './stellar/network';
 import { withTransientRetry } from './utils/node-retry';
 import {
   assertWebCryptoSupport,
@@ -189,6 +189,21 @@ export class TrustFlowClient {
     this._networkPassphrase = config.networkPassphrase ?? NETWORK_PASSPHRASES[this.network];
     if (typeof this._networkPassphrase !== 'string' || !this._networkPassphrase.trim()) {
       throw new TrustFlowError('networkPassphrase must not be empty', 'INVALID_CONFIG');
+    }
+
+    // Issue #759 — warn when both rpcUrl and networkPassphrase are explicitly
+    // supplied and the rpcUrl's hostname matches a well-known network whose
+    // canonical passphrase differs from the one provided.  This combination
+    // cannot work: transactions signed with the wrong passphrase are invalid on
+    // the target network, and the resulting failures are confusing to diagnose.
+    if (config.rpcUrl && config.networkPassphrase) {
+      if (!rpcUrlMatchesPassphrase(config.rpcUrl, config.networkPassphrase)) {
+        logger.warn(
+          'rpcUrl and networkPassphrase appear to target different networks. ' +
+            'Transactions signed with this configuration will be rejected. ' +
+            `rpcUrl: "${config.rpcUrl}", networkPassphrase: "${config.networkPassphrase}"`,
+        );
+      }
     }
     this.apiBaseUrl = config.apiBaseUrl;
     this.apiKey = config.apiKey;
@@ -500,7 +515,9 @@ export class TrustFlowClient {
    * @param address - Stellar public key (G... address)
    * @param options - Set `skipCache` to bypass a configured balance cache, and
    *   `account` to read/write a specific account's cache entry
-   * @returns Balance in XLM as a string
+   * @returns Balance in XLM as a string, at Horizon's full 7-decimal precision
+   *   (e.g. `'0.0000100'` for 100 stroops). To show it with fewer decimals, use
+   *   `formatBalance`, which never turns a nonzero balance into a zero string (#739).
    * @throws {TrustFlowError} If the account doesn't exist or network error occurs
    *
    * @example
@@ -761,6 +778,12 @@ export class TrustFlowClient {
    * const binding = client.createContractBinding(specXdrEntries);
    * const res = await binding.methods.create_escrow({ depositor, beneficiary, amount, duration }, caller);
    * ```
+   *
+   * @deprecated Use the standalone `createContractBinding(client, specEntries)`
+   *   from `@trustflow/sdk/contract` instead. Because this method lives on the
+   *   client class, every app that imports `TrustFlowClient` ships the Soroban
+   *   spec parser (~20 KB minified) whether or not it ever builds a binding;
+   *   removing it in a future major release lets bundlers drop that code (#736).
    */
   createContractBinding<T extends Record<string, any> = Record<string, any>>(
     specEntries: (xdr.ScSpecEntry | string | Uint8Array | Buffer)[],
